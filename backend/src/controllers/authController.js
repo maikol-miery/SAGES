@@ -58,7 +58,7 @@ exports.login = async (req, res) => {
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: '8h' // El token durará toda una jornada laboral
+            expiresIn: '6h' // El token durará toda una jornada laboral
         });
 
         res.json({

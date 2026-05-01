@@ -1,3 +1,6 @@
+const {DataTypes} = require("sequelize")
+const sequelize = require("../databases/db_config")
+
 const Teacher = sequelize.define('Teacher', {
     id: {
         type: DataTypes.UUID,
