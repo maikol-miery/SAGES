@@ -39,16 +39,10 @@ const Student = sequelize.define('Student', {
         type: DataTypes.ENUM('activo', 'retirado', 'graduado'),
         defaultValue: 'activo'
     },
-    RepresentativeId: {
-        type: DataTypes.UUID,
-        references: {
-            model: 'representantes',
-            key: 'id'
-        }
-    }
 }, {
     tableName: 'estudiantes',
-    timestamps: true
+    timestamps: true,
+    underscored: true
 });
 
 module.exports = Student;

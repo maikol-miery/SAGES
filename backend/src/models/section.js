@@ -32,5 +32,3 @@ const Section = sequelize.define('Section', {
 });
 
 module.exports = Section;
-
-module.exports = Section;

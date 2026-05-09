@@ -1,0 +1,1 @@
+const { Section, sequelize } = require('../models');

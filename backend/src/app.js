@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
+const studentsRoutes = require('./routes/studentsRoutes');
 const sequelize = require('./databases/db_config');
 
 const app = express();
@@ -17,6 +18,7 @@ app.use((err, req, res, next) => {
 
 // Rutas
 app.use('/api/auth', authRoutes);
+app.use('/api/students', studentsRoutes);
 
 async function startServer() {
     try {

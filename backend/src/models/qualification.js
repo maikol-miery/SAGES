@@ -23,30 +23,16 @@ const Qualification = sequelize.define('Qualification', {
         type: DataTypes.ENUM('continua', 'revisión', 'final'), 
         defaultValue: 'continua'
     },
-    // Llaves foráneas
-    StudentId: {
-        type: DataTypes.UUID,
-        references: { model: 'estudiantes', key: 'id' },
-        allowNull: false
-    },
-    SubjectId: {
-        type: DataTypes.UUID,
-        references: { model: 'materias', key: 'id' },
-        allowNull: false
-    },
-    SectionId: {
-        type: DataTypes.UUID,
-        references: { model: 'secciones', key: 'id' },
-        allowNull: false
-    }
+    
 }, {
     tableName: 'calificaciones',
     timestamps: true,
+    underscored: true,
     indexes: [
         {
-            // Evita que un alumno tenga dos notas para la misma materia en el mismo lapso
             unique: true,
-            fields: ['StudentId', 'SubjectId', 'lapso', 'SectionId']
+            // CAMBIA ESTO: Usa los nombres con guion bajo
+            fields: ['student_id', 'subject_id', 'lapso', 'section_id'] 
         }
     ]
 });

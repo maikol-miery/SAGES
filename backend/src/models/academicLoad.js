@@ -26,11 +26,12 @@ const AcademicLoad = sequelize.define('AcademicLoad', {
 }, {
     tableName: 'carga_academica',
     timestamps: true,
+    underscored: true,
     indexes: [
         {
             // Un profesor no puede tener asignada la misma materia en la misma sección dos veces
             unique: true,
-            fields: ['TeacherId', 'SubjectId', 'SectionId']
+            fields: ['teacher_id', 'subject_id', 'section_id']
         }
     ]
 });

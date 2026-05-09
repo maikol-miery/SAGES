@@ -14,24 +14,16 @@ const Registration = sequelize.define('Registration', {
     observaciones: {
         type: DataTypes.TEXT,
         allowNull: true
-    },
-    // Llaves foráneas explícitas
-    StudentId: {
-        type: DataTypes.UUID,
-        references: { model: 'estudiantes', key: 'id' }
-    },
-    SectionId: {
-        type: DataTypes.UUID,
-        references: { model: 'secciones', key: 'id' }
     }
 }, {
     tableName: 'inscripciones',
-    timestamps: true, // Esto genera automáticamente la fecha de inscripción
-    indexes: [
+    timestamps: true,
+    underscored: true,
+   indexes: [
         {
-            // Regla de oro: Un alumno no puede estar dos veces en la misma sección
-            unique: true,
-            fields: ['StudentId', 'SectionId']
+        unique: true,
+        // Usamos los nombres que Sequelize genera con underscored: true
+        fields: ['student_id', 'section_id'] 
         }
     ]
 });
