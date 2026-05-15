@@ -17,7 +17,7 @@ const Subject = sequelize.define("subject", {
         allowNull: false
     },
     grado: {
-        type: DataTypes.ENUM('1', '2', '3', '4', '5'), // Ajustado a bachillerato
+        type: DataTypes.STRING, 
         allowNull: false
     }
 }, {

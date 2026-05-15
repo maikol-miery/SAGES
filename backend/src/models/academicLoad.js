@@ -7,21 +7,13 @@ const AcademicLoad = sequelize.define('AcademicLoad', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    // Llaves foráneas
-    TeacherId: {
-        type: DataTypes.UUID,
-        references: { model: 'profesores', key: 'id' },
-        allowNull: false
+    anio_escolar: {
+        type: DataTypes.STRING,
+        allowNull: false,
     },
-    SubjectId: {
-        type: DataTypes.UUID,
-        references: { model: 'materias', key: 'id' },
-        allowNull: false
-    },
-    SectionId: {
-        type: DataTypes.UUID,
-        references: { model: 'secciones', key: 'id' },
-        allowNull: false
+    estado: {
+        type: DataTypes.STRING,
+        defaultValue: 'activo' 
     }
 }, {
     tableName: 'carga_academica',

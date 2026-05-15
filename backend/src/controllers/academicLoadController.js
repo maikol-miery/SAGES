@@ -1,0 +1,88 @@
+const { AcademicLoad, Teacher, Subject, Section } = require('../models');
+
+const assingTeacher = async (req, res) =>{
+
+    try{
+        const {teacher_id, subject_id, section_id, anio_escolar} = req.body;
+
+        const teacher = await Teacher.findByPk(teacher_id);
+
+        if(!teacher){
+            console.error("profesor no encontrado");
+            return res.status(404).json({
+                msg:"El profesor ingresado no existe"
+            })
+        }
+
+        const section = await Section.findByPk(section_id);
+
+        if(!section){
+            console.error("seccion no encontrada");
+            return res.status(404).json({
+                msg:"Seccion no encontrada"
+            })
+        }
+
+        const subject = await Subject.findByPk({subject_id});
+
+        if(!subject){
+            console.error("materia no encontrada");
+            return res.status(404).json({
+                msg:"La materia seleccionado no existe"
+            })
+        }
+
+        const existingLoad = await AcademicLoad.findOne({
+                where: {
+                    teacher_id,
+                    subject_id,
+                    section_id
+                }
+            });
+
+            if (existingLoad) {
+                return res.status(400).json({
+                    msg: "Esta carga académica ya ha sido asignada previamente."
+                });
+            }
+
+            const newLoad = await AcademicLoad.create({
+                TeacherId: teacher_id, 
+                SubjectId: subject_id,
+                SectionId: section_id,
+                anio_escolar: anio_escolar || "2025-2026", 
+                estado: "activo"
+            });
+
+            return res.status(201).json({
+                msg: "Carga académica asignada exitosamente",
+                data: newLoad
+            });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            msg: "Error interno al procesar la carga académica",
+            error: error.message
+        });
+    }
+};
+
+const getAcademicLoads = async (req, res) => {
+    try {
+        const loads = await AcademicLoad.findAll({
+            include: [
+                { model: Teacher, attributes: ['nombres', 'apellidos'] },
+                { model: Subject, attributes: ['nombre_materia'] },
+                { model: Section, attributes: ['nombre_seccion'] }
+            ]
+        });
+        return res.json({ data: loads });
+    } catch (error) {
+        return res.status(500).json({ msg: "Error al obtener la carga" });
+    }
+};
+
+module.exports = {
+    assignTeacher,
+    getAcademicLoads
+};

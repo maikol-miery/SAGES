@@ -8,7 +8,7 @@ const Section = sequelize.define('Section', {
         primaryKey: true
     },
     grado: {
-        type: DataTypes.ENUM('1', '2', '3', '4', '5'), 
+        type: DataTypes.STRING, 
         allowNull: false
     },
     seccion: {
@@ -19,6 +19,11 @@ const Section = sequelize.define('Section', {
         type: DataTypes.STRING, 
         allowNull: false
     },
+    capacidad: {
+        type: DataTypes.INTEGER,
+        allowNull: false, // Cámbialo a true momentáneamente
+        defaultValue: 40
+    }
 }, {
     tableName: 'secciones',
     timestamps: true,

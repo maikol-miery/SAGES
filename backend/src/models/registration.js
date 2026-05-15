@@ -8,13 +8,16 @@ const Registration = sequelize.define('Registration', {
         primaryKey: true
     },
     tipo_inscripcion: {
-        type: DataTypes.ENUM('nuevo_ingreso', 'regular'),
+        type: DataTypes.STRING,
         allowNull: false
     },
     observaciones: {
-        type: DataTypes.TEXT,
+        type: DataTypes.STRING,
         allowNull: true
-    }
+    },
+    estado: {
+        type: DataTypes.STRING
+    },
 }, {
     tableName: 'inscripciones',
     timestamps: true,
