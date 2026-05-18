@@ -5,6 +5,9 @@ const studentsRoutes = require('./routes/studentsRoutes');
 const sectionsRoutes = require('./routes/sectionsRoutes');
 const subjectsRoutes = require('./routes/subjectsRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
+const academicLoadRoutes = require('./routes/academicLoadRoutes');
+const teacherRoutes = require('./routes/teacherRoutes');
+const qualificationsRoutes = require('./routes/qualificationsRoutes');
 const sequelize = require('./databases/db_config');
 
 const app = express();
@@ -25,6 +28,9 @@ app.use('/api/students', studentsRoutes);
 app.use('/api/sections', sectionsRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/registrations', registrationRoutes);
+app.use('/api/academic-load', academicLoadRoutes)
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/qualifications', qualificationsRoutes);
 
 async function startServer() {
     try {

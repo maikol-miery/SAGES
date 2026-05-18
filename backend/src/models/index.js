@@ -35,22 +35,21 @@ Teacher.belongsToMany(Section, { through: AcademicLoad });
 Section.belongsToMany(Teacher, { through: AcademicLoad });
 
 // Relaciones directas de Carga Académica
-AcademicLoad.belongsTo(Teacher);
-AcademicLoad.belongsTo(Subject);
-AcademicLoad.belongsTo(Section);
-Teacher.hasMany(AcademicLoad);
-Subject.hasMany(AcademicLoad);
-Section.hasMany(AcademicLoad);
+AcademicLoad.belongsTo(Teacher, { foreignKey: 'teacher_id' });
+AcademicLoad.belongsTo(Subject, { foreignKey: 'subject_id' });
+AcademicLoad.belongsTo(Section, { foreignKey: 'section_id' });
+
+Teacher.hasMany(AcademicLoad, { foreignKey: 'teacher_id' });
+Subject.hasMany(AcademicLoad, { foreignKey: 'subject_id' });
+Section.hasMany(AcademicLoad, { foreignKey: 'section_id' });
 
 // 4. Calificaciones: Relación Estudiante - Materia - Sección (1:N)
-Student.hasMany(Qualification);
-Qualification.belongsTo(Student);
+Student.hasMany(Qualification, { foreignKey: 'student_id' });
+Qualification.belongsTo(Student, { foreignKey: 'student_id' });
 
-Subject.hasMany(Qualification);
-Qualification.belongsTo(Subject);
-
-Section.hasMany(Qualification);
-Qualification.belongsTo(Section);
+// NUEVA RELACIÓN: Carga Académica - Calificación
+AcademicLoad.hasMany(Qualification, { foreignKey: 'academic_load_id' });
+Qualification.belongsTo(AcademicLoad, { foreignKey: 'academic_load_id' });
 
 // Exportar todo el objeto para usarlo en controladores
 module.exports = {

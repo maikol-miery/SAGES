@@ -33,8 +33,7 @@ const Teacher = sequelize.define('Teacher', {
         }
     },
     estado: {
-        type: DataTypes.ENUM('activo', 'inactivo'),
-        defaultValue: 'activo'
+        type: DataTypes.STRING,
     }
 }, {
     tableName: 'profesores',

@@ -1,11 +1,15 @@
 const { AcademicLoad, Teacher, Subject, Section } = require('../models');
 
-const assingTeacher = async (req, res) =>{
+const assignTeacher = async (req, res) =>{
 
     try{
         const {teacher_id, subject_id, section_id, anio_escolar} = req.body;
 
-        const teacher = await Teacher.findByPk(teacher_id);
+        const [teacher, subject, section] = await Promise.all([
+            Teacher.findByPk(teacher_id),
+            Subject.findByPk(subject_id),
+            Section.findByPk(section_id)
+        ]);
 
         if(!teacher){
             console.error("profesor no encontrado");
@@ -14,16 +18,12 @@ const assingTeacher = async (req, res) =>{
             })
         }
 
-        const section = await Section.findByPk(section_id);
-
         if(!section){
             console.error("seccion no encontrada");
             return res.status(404).json({
                 msg:"Seccion no encontrada"
             })
         }
-
-        const subject = await Subject.findByPk({subject_id});
 
         if(!subject){
             console.error("materia no encontrada");
@@ -47,9 +47,9 @@ const assingTeacher = async (req, res) =>{
             }
 
             const newLoad = await AcademicLoad.create({
-                TeacherId: teacher_id, 
-                SubjectId: subject_id,
-                SectionId: section_id,
+                teacher_id, 
+                subject_id,
+                section_id,
                 anio_escolar: anio_escolar || "2025-2026", 
                 estado: "activo"
             });

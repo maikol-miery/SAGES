@@ -16,11 +16,11 @@ const Qualification = sequelize.define('Qualification', {
         }
     },
     lapso: {
-        type: DataTypes.ENUM('1', '2', '3'), // Los tres momentos del año escolar
+        type: DataTypes.STRING, // Los tres momentos del año escolar
         allowNull: false
     },
     tipo_evaluacion: {
-        type: DataTypes.ENUM('continua', 'revisión', 'final'), 
+        type: DataTypes.STRING, 
         defaultValue: 'continua'
     },
     
@@ -31,8 +31,7 @@ const Qualification = sequelize.define('Qualification', {
     indexes: [
         {
             unique: true,
-            // CAMBIA ESTO: Usa los nombres con guion bajo
-            fields: ['student_id', 'subject_id', 'lapso', 'section_id'] 
+            fields: ['student_id', 'academic_load_id', 'lapso']
         }
     ]
 });
