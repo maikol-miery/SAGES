@@ -35,8 +35,8 @@ const registerStudent = async (req, res) => {
         }
 
         const enrollment = await Registration.create({
-            StudentId: student_id, // La 'S' mayúscula es la clave aquí
-            SectionId: section_id, // La 'S' mayúscula es la clave aquí
+            student_id, 
+            section_id, 
             tipo_inscripcion,
             observaciones,
             estado: "activo"

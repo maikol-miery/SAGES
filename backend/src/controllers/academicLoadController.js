@@ -71,14 +71,26 @@ const getAcademicLoads = async (req, res) => {
     try {
         const loads = await AcademicLoad.findAll({
             include: [
-                { model: Teacher, attributes: ['nombres', 'apellidos'] },
-                { model: Subject, attributes: ['nombre_materia'] },
-                { model: Section, attributes: ['nombre_seccion'] }
+                { model: Teacher, attributes: ['nombre', 'apellido'] },
+                { model: Subject, attributes: ['nombre'] },
+                { model: Section, attributes: ['grado', 'seccion'] }
             ]
         });
+
+        if (loads.length === 0) {
+            return res.status(200).json({ 
+                msg: "No se encontraron cargas académicas registradas.", 
+                data: [] 
+            });
+        }
+
         return res.json({ data: loads });
     } catch (error) {
-        return res.status(500).json({ msg: "Error al obtener la carga" });
+        console.error("Error en getAcademicLoads:", error); 
+        return res.status(500).json({ 
+            msg: "Error interno al obtener la carga académica",
+            error: error.message 
+        });
     }
 };
 

@@ -28,7 +28,7 @@ const Student = sequelize.define('Student', {
         allowNull: false
     },
     genero: {
-        type: DataTypes.ENUM('M', 'F'),
+        type: DataTypes.STRING,
         allowNull: false
     },
     direccion: {
@@ -36,7 +36,7 @@ const Student = sequelize.define('Student', {
         allowNull: true
     },
     estado: {
-        type: DataTypes.ENUM('activo', 'retirado', 'graduado'),
+        type: DataTypes.STRING,
         defaultValue: 'activo'
     },
 }, {

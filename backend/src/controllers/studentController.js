@@ -5,69 +5,68 @@ const registerStudent = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
-        
-        const {
-            //datos del representante
-            cedula_repre, nombre_repre, apellido_repre, telefono_repre, email_repre, parentesco_repre,
-            //datos estudiante
-            cedula_est, nombre_est, apellido_est, fecha_nacimiento, genero, direccion
-        } = req.body;
+        // 🚀 DESESTRUCTURACIÓN ADAPTADA: Extraemos los dos bloques del req.body
+        const { estudiante, representante } = req.body;
 
+        // 1. Buscamos o creamos al representante usando los campos puros de su objeto
         const [representative, created] = await Representative.findOrCreate({
-            where: { cedula: cedula_repre },
+            where: { cedula: representante.cedula },
             defaults: { 
-                nombre: nombre_repre, 
-                apellido: apellido_repre, 
-                telefono: telefono_repre,
-                email: email_repre,
-                parentesco: parentesco_repre 
+                nombre: representante.nombre, 
+                apellido: representante.apellido, 
+                telefono: representante.telefono,
+                email: representante.email,
+                parentesco: representante.parentesco 
             },
             transaction: t 
         });
 
+        // 2. Creamos al estudiante esparciendo sus datos puros y asociando el RepresentativeId
         const newStudent = await Student.create({
-            cedula: cedula_est,
-            nombre: nombre_est,
-            apellido: apellido_est,
-            fecha_nacimiento,
-            genero,
-            direccion,
-            RepresentativeId: representative.id, // Vinculación automática
+            ...estudiante,                       // Esparce automáticamente: cedula, nombre, apellido, fecha_nacimiento, genero, direccion
+            RepresentativeId: representative.id, // Vinculación automática usando tu FK exacta
         }, { transaction: t });
 
         await t.commit();
 
         return res.status(201).json({
-            message: 'Estudiante y Representante procesados con éxito',
-            student: newStudent,
-            representative_status: created ? 'Nuevo creado' : 'Ya existía'
+            message: 'Estudiante y Representante procesados con éxito en SAGES',
+            representative_status: created ? 'Nuevo creado' : 'Ya existía',
+            data: {
+                student: newStudent,
+                representative: representative 
+            }
         });
 
     } catch (err) {
+        // Corregido el rollback y la referencia a la variable del error (err)
         await t.rollback();
         console.error('Error en registro:', err);
         return res.status(500).json({ 
             message: 'Error al registrar el estudiante', 
-            err: error.message 
+            err: err.message 
         });
     }
 }
 
-const getAllStudents = async (req, res) =>{
+const getAllStudents = async (req, res) => {
     try {
         const students = await Student.findAll({
             include: [{ model: Representative }] 
         });
-        res.json(students);
+        return res.status(200).json({
+            status: 'success',
+            count: students.length,
+            data: students
+        });
 
     } catch (error) {
-        console.error('Error al obtener estudiantes:', err);
+        console.error('Error al obtener estudiantes:', error); 
         return res.status(500).json({
-            message: 'error al obtener los estudiantes', 
-            err: error.message 
-        })
+            message: 'Error al obtener los estudiantes', 
+            error: error.message 
+        });
     }
-
-}
+};
 
 module.exports = {registerStudent, getAllStudents};
