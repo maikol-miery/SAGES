@@ -69,7 +69,54 @@ const getAllSubjects = async(req, res) => {
     }
 }
 
+const updateSubject = async (req, res) => {
+    const { id } = req.params;
+    const dataToUpdate = { ...req.body };
+
+    try {
+        // 1. Buscamos la materia por ID
+        const subject = await Subject.findByPk(id);
+
+        if (!subject) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'La materia no se encuentra registrada en el sistema.'
+            });
+        }
+
+        // 2. Protegemos el ID para evitar alteraciones accidentales
+        delete dataToUpdate.id;
+
+        // 3. Cargamos los datos limpios en memoria
+        subject.set(dataToUpdate);
+
+        // 4. Guardamos en Postgres solo si hubo cambios reales
+        if (subject.changed()) {
+            await subject.save();
+        }
+
+        // 5. Recargamos la instancia para reflejar los datos finales
+        await subject.reload();
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Materia actualizada con éxito.',
+            data: { subject }
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar la materia:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Ocurrió un error interno al actualizar la materia.',
+            error: error.message
+        });
+    }
+};
+
+// Recuerda exportarla al final de tu archivo junto a las otras:
 module.exports = {
-    getAllSubjects, 
-    createSubject
-}
+    getAllSubjects,
+    createSubject,
+    updateSubject // <--- Agregada aquí
+};

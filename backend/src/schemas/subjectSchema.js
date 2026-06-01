@@ -1,29 +1,29 @@
 const { z } = require('zod');
 
-// Esquema base para registrar una Materia (POST)
-const createSubjectSchema = z.object({
-    body: z.object({
-        abreviatura: z.string()
-            .trim()
-            .min(2, "La abreviatura debe tener al menos 2 caracteres (ej: MA, EF).")
-            .max(6, "La abreviatura no puede exceder los 6 caracteres (ej: GHC, premil).")
-            .toUpperCase(), // Transforma "mat" o "Mat" en "MAT" automáticamente
-            
-        nombre: z.string()
-            .trim()
-            .min(3, "El nombre de la materia debe tener al menos 3 caracteres.")
-            .max(100, "El nombre de la materia es demasiado largo."),
-            
-        grado: z.string()
-            .trim()
-            .min(1, "El campo grado es obligatorio.")
-            .max(20, "El formato del grado es demasiado largo.")
+// 1. Definimos los campos base con TODOS sus mensajes y transformaciones
+const subjectFields = z.object({
+    abreviatura: z.string({ required_error: "La abreviatura es requerida." })
+        .trim()
+        .min(2, "La abreviatura debe tener al menos 2 caracteres (ej: MA, EF).")
+        .max(6, "La abreviatura no puede exceder los 6 caracteres (ej: GHC).")
+        .toUpperCase(), // Transforma automáticamente a mayúsculas consistentes
+        
+    nombre: z.string({ required_error: "El nombre de la materia es requerido." })
+        .trim()
+        .min(3, "El nombre de la materia debe tener al menos 3 caracteres.")
+        .max(100, "El nombre de la materia es demasiado largo."),
+        
+    grado: z.enum(["1", "2", "3", "4", "5"], {
+        errorMap: () => ({ message: "Grado inválido. Debe ser un año del '1' al '5' de bachillerato." })
     })
 });
 
-// Esquema para editar una Materia (PUT)
+const createSubjectSchema = z.object({
+    body: subjectFields
+});
+
 const updateSubjectSchema = z.object({
-    body: createSubjectSchema.shape.body.partial()
+    body: subjectFields.partial()
 });
 
 module.exports = {

@@ -34,8 +34,24 @@ const User = sequelize.define('User', {
         allowNull: false
     },
     rol: {
-        type: DataTypes.ENUM('admin', 'personal'),
-        defaultValue: 'personal'
+        type: DataTypes.ENUM('admin', 'secretaria', 'profesor'),
+        defaultValue: 'secretaria'
+    },
+    preguntaSeguridad1: {
+    type: DataTypes.STRING,
+    allowNull: true 
+    },
+    respuestaSeguridad1: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    preguntaSeguridad2: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    respuestaSeguridad2: {
+        type: DataTypes.STRING,
+        allowNull: true
     }
 }, {
   tableName: 'usuarios',
@@ -44,14 +60,30 @@ const User = sequelize.define('User', {
     
     beforeCreate: async (user) => {
       const salt = await bcrypt.genSalt(10); 
-      user.password = await bcrypt.hash(user.password, salt); 
+      user.password = await bcrypt.hash(user.password, salt);
+
+      if (user.respuestaSeguridad1) {
+          const resp1Normalizada = user.respuestaSeguridad1.toLowerCase().trim();
+          user.respuestaSeguridad1 = await bcrypt.hash(resp1Normalizada, salt);
+      }
+
+      if (user.respuestaSeguridad2) {
+          const resp2Normalizada = user.respuestaSeguridad2.toLowerCase().trim();
+          user.respuestaSeguridad2 = await bcrypt.hash(resp2Normalizada, salt);
+      }
     },
    
     beforeUpdate: async (user) => {
-      if (user.changed('password')) {
         const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(user.password, salt);
-      }
+        if (user.changed('password')) {
+            user.password = await bcrypt.hash(user.password, salt);
+        }
+        if (user.changed('respuestaSeguridad1')) {
+            user.respuestaSeguridad1 = await bcrypt.hash(user.respuestaSeguridad1.toLowerCase().trim(), salt);
+        }
+        if (user.changed('respuestaSeguridad2')) {
+            user.respuestaSeguridad2 = await bcrypt.hash(user.respuestaSeguridad2.toLowerCase().trim(), salt);
+        }
     }
   }
 });

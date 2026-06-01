@@ -94,7 +94,53 @@ const getAcademicLoads = async (req, res) => {
     }
 };
 
+const updateAcademicLoad = async (req, res) => {
+    const { id } = req.params;
+    const dataToUpdate = { ...req.body };
+
+    try {
+        // 1. Buscamos la carga académica por ID
+        const academicLoad = await AcademicLoad.findByPk(id);
+
+        if (!academicLoad) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'La asignación de carga académica no existe en el sistema.'
+            });
+        }
+
+        // 2. Protegemos el ID principal
+        delete dataToUpdate.id;
+
+        // 3. Cargamos las modificaciones en memoria
+        academicLoad.set(dataToUpdate);
+
+        // 4. Guardamos en PostgreSQL si hay cambios reales
+        if (academicLoad.changed()) {
+            await academicLoad.save();
+        }
+
+        // 5. Refrescamos la instancia antes de responder
+        await academicLoad.reload();
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Carga académica modificada con éxito.',
+            data: { academicLoad }
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar la carga académica:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Ocurrió un error interno al actualizar la carga académica.',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     assignTeacher,
-    getAcademicLoads
+    getAcademicLoads,
+    updateAcademicLoad
 };

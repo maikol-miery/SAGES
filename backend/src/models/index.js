@@ -14,18 +14,18 @@ const AcademicLoad = require('./AcademicLoad');
 // --- DEFINICIÓN DE RELACIONES ---
 
 // 1. Relación Estudiante - Representante (1:N)
-Representative.hasMany(Student, { foreignKey: 'RepresentativeId' });
-Student.belongsTo(Representative, { foreignKey: 'RepresentativeId' });
+Representative.hasMany(Student, { foreignKey: 'representative_id' }); // (Si en la BD es representative_id, cámbialo aquí también)
+Student.belongsTo(Representative, { foreignKey: 'representative_id' });
 
 // 2. Inscripción: Relación Estudiante - Sección (M:N a través de Registration)
-Student.belongsToMany(Section, { through: Registration });
-Section.belongsToMany(Student, { through: Registration });
+Student.belongsToMany(Section, { through: Registration, foreignKey: 'student_id'});
+Section.belongsToMany(Student, { through: Registration, foreignKey: 'section_id'});
 
 // Relaciones directas para facilitar consultas (Eager Loading)
-Registration.belongsTo(Student);
-Registration.belongsTo(Section);
-Student.hasMany(Registration);
-Section.hasMany(Registration);
+Registration.belongsTo(Student, { foreignKey: 'student_id' });
+Registration.belongsTo(Section, { foreignKey: 'section_id' });
+Student.hasMany(Registration, { foreignKey: 'student_id' });
+Section.hasMany(Registration, { foreignKey: 'section_id' });
 
 // 3. Carga Académica: Relación Profesor - Materia - Sección (M:N)
 Teacher.belongsToMany(Subject, { through: AcademicLoad });

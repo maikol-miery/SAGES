@@ -1,76 +1,137 @@
-const { Qualification, AcademicLoad, Student } = require('../models');
+// 🎯 Importamos Registration junto a tus otros modelos
+const { Qualification, AcademicLoad, Student, Registration, sequelize } = require('../models');
 
-const saveQualification = async (req, res) => {
+// 1. REGISTRAR UNA SOLA NOTA (POST /api/qualifications)
+const saveQualification = async (req, res, next) => {
     try {
         const { student_id, academic_load_id, lapso, nota, tipo_evaluacion } = req.body;
 
-        if (nota < 0 || nota > 20) {
-            return res.status(400).json({
-                msg: "La nota debe estar en el rango de 0 a 20."
-            });
-        }
-
-        if (!['1', '2', '3'].includes(String(lapso))) {
-            return res.status(400).json({
-                msg: "El lapso ingresado no es válido. Debe ser '1', '2' o '3'."
-            });
-        }
-
-        const [student, academicLoad] = await Promise.all([
-            Student.findByPk(student_id),
-            AcademicLoad.findByPk(academic_load_id)
-        ]);
-
-        if (!student) {
-            return res.status(404).json({ msg: "El estudiante ingresado no existe." });
-        }
-
+        // Buscamos la carga académica primero para saber de qué sección es la materia
+        const academicLoad = await AcademicLoad.findByPk(academic_load_id);
         if (!academicLoad) {
-            return res.status(404).json({ msg: "La carga académica (relación profesor-materia-sección) no existe." });
+            return res.status(404).json({ status: "error", message: "La carga académica no existe." });
         }
 
-        const existingQualification = await Qualification.findOne({
+        // 🔒 CANDADO: Verificamos que el estudiante tenga una inscripción activa EN ESA SECCIÓN
+        const registration = await Registration.findOne({
             where: {
                 student_id,
-                academic_load_id,
-                lapso
+                section_id: academicLoad.section_id // Deben coincidir obligatoriamente
             }
         });
 
-        if (existingQualification) {
-            existingQualification.nota = nota;
-            if (tipo_evaluacion) existingQualification.tipo_evaluacion = tipo_evaluacion;
-            
-            await existingQualification.save();
-
-            return res.status(200).json({
-                msg: "Calificación actualizada exitosamente.",
-                data: existingQualification
+        if (!registration) {
+            return res.status(400).json({ 
+                status: "error", 
+                message: "El estudiante no se encuentra inscrito en la sección correspondiente a esta carga académica." 
             });
         }
 
+        // Verificar si ya existe la nota para este lapso (Evita duplicados en POST)
+        const existing = await Qualification.findOne({ where: { student_id, academic_load_id, lapso } });
+        if (existing) {
+            return res.status(409).json({ 
+                status: "error", 
+                message: "Ya existe una calificación registrada para este alumno en este lapso. Use el método PUT para modificarla." 
+            });
+        }
+
+        // Si pasa los filtros, se crea la calificación
         const newQualification = await Qualification.create({
-            student_id,
-            academic_load_id,
-            lapso,
-            nota,
-            tipo_evaluacion: tipo_evaluacion || 'continua' 
+            student_id, academic_load_id, lapso, nota, tipo_evaluacion
         });
 
-        return res.status(201).json({
-            msg: "Calificación registrada exitosamente.",
-            data: newQualification
-        });
+        return res.status(201).json({ status: "success", data: newQualification });
+    } catch (error) { next(error); }
+};
 
+// 2. MODIFICAR UNA SOLA NOTA (PUT /api/qualifications/:id)
+const updateQualification = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { nota, tipo_evaluacion } = req.body;
+
+        const qualification = await Qualification.findByPk(id);
+        if (!qualification) {
+            return res.status(404).json({ status: "error", message: "La calificación que intenta editar no existe." });
+        }
+
+        if (nota !== undefined) qualification.nota = nota;
+        if (tipo_evaluacion) qualification.tipo_evaluacion = tipo_evaluacion;
+
+        await qualification.save();
+        return res.status(200).json({ status: "success", message: "Calificación modificada exitosamente.", data: qualification });
+    } catch (error) { next(error); }
+};
+
+// 3. CARGA MASIVA DE PLANILLA CON UPSERT BLINDADO (POST /api/qualifications/bulk)
+const saveBulkQualifications = async (req, res, next) => {
+    const t = await sequelize.transaction();
+    try {
+        const { academic_load_id, lapso, tipo_evaluacion, notas } = req.body;
+
+        const academicLoad = await AcademicLoad.findByPk(academic_load_id, { transaction: t });
+        if (!academicLoad) {
+            await t.rollback();
+            return res.status(404).json({ status: "error", message: "La carga académica no existe." });
+        }
+
+        const resultados = [];
+
+        for (const item of notas) {
+            const { student_id, nota } = item;
+
+            // 🔒 CANDADO MASIVO: Verificamos inscripción activa por cada alumno del lote
+            const isEnrolled = await Registration.findOne({
+                where: {
+                    student_id,
+                    section_id: academicLoad.section_id
+                },
+                transaction: t
+            });
+            
+            if (!isEnrolled) {
+                // Si uno solo del lote falla, la transacción cancela TODO el paquete de la secretaria
+                await t.rollback();
+                return res.status(400).json({ 
+                    status: "error", 
+                    message: `El estudiante con ID ${student_id} no está inscrito formalmente en la sección de esta planilla.` 
+                });
+            }
+
+            // Lógica de Upsert (Actualiza o crea)
+            const existingQualification = await Qualification.findOne({
+                where: { student_id, academic_load_id, lapso },
+                transaction: t
+            });
+
+            if (existingQualification) {
+                existingQualification.nota = nota;
+                if (tipo_evaluacion) existingQualification.tipo_evaluacion = tipo_evaluacion;
+                await existingQualification.save({ transaction: t });
+                resultados.push(existingQualification);
+            } else {
+                const newQualification = await Qualification.create({
+                    student_id, academic_load_id, lapso, nota, tipo_evaluacion: tipo_evaluacion || 'continua'
+                }, { transaction: t });
+                resultados.push(newQualification);
+            }
+        }
+
+        await t.commit();
+        return res.status(200).json({
+            status: "success",
+            message: `Planilla procesada: ${resultados.length} calificaciones sincronizadas con éxito.`,
+            data: resultados
+        });
     } catch (error) {
-        console.error("Error en saveQualification:", error);
-        return res.status(500).json({
-            msg: "Error interno al procesar la calificación.",
-            error: error.message
-        });
+        await t.rollback();
+        next(error);
     }
 };
 
 module.exports = {
-    saveQualification
+    saveQualification,
+    updateQualification,
+    saveBulkQualifications
 };

@@ -59,7 +59,54 @@ const getAllSections = async (req, res) =>{
     }
 }
 
+const updateSection = async (req, res) => {
+    const { id } = req.params;
+    const dataToUpdate = { ...req.body };
+
+    try {
+        // 1. Buscamos la sección por ID
+        const section = await Section.findByPk(id);
+
+        if (!section) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'La sección no se encuentra registrada en el sistema.'
+            });
+        }
+
+        // 2. Protegemos el ID contra modificaciones accidentales
+        delete dataToUpdate.id;
+
+        // 3. Cargamos los datos limpios y trimeados en memoria
+        section.set(dataToUpdate);
+
+        // 4. Guardamos en la base de datos solo si hubo cambios verdaderos
+        if (section.changed()) {
+            await section.save();
+        }
+
+        // 5. Refrescamos la instancia antes de responder
+        await section.reload();
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Sección actualizada con éxito.',
+            data: { section }
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar la sección:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Ocurrió un error interno al actualizar la sección.',
+            error: error.message
+        });
+    }
+};
+
+// Exportamos junto a las que ya tenías
 module.exports = {
     createSection,
-    getAllSections
-}
+    getAllSections,
+    updateSection 
+};

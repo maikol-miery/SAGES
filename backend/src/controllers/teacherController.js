@@ -43,7 +43,50 @@ const getAllTeachers = async (req, res) => {
     }
 };
 
+const updateTeacher = async (req, res) => {
+    const { id } = req.params;
+    
+    const dataToUpdate = { ...req.body }; 
+
+    try {
+
+        const teacher = await Teacher.findByPk(id);
+        
+        if (!teacher) {
+            return res.status(404).json({ 
+                status: 'error',
+                message: 'Profesor no encontrado en el sistema.' 
+            });
+        }
+
+        delete dataToUpdate.id; 
+
+        teacher.set(dataToUpdate); 
+        
+        if (teacher.changed()) {
+            await teacher.save();
+        }
+        
+        await teacher.reload();
+
+        return res.status(200).json({ 
+            status: 'success', 
+            message: 'Datos del profesor actualizados con éxito.',
+            data: { teacher } 
+        });
+
+    } catch (error) {
+        console.error('Error al actualizar profesor:', error);
+        return res.status(500).json({ 
+            status: 'error',
+            message: 'Ocurrió un error interno al actualizar los datos.',
+            error: error.message 
+        });
+    }
+};
+
 module.exports = {
     createTeacher,
-    getAllTeachers
+    getAllTeachers,
+    updateTeacher
 };

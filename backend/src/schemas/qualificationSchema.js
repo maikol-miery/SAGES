@@ -44,7 +44,27 @@ const updateQualificationSchema = z.object({
     body: createQualificationSchema.shape.body.partial()
 });
 
+const createBulkQualificationsSchema = z.object({
+  body: z.object({
+    // Extraemos la validación de academic_load_id, lapso y tipo_evaluacion de tu propio esquema
+    academic_load_id: createQualificationSchema.shape.body.shape.academic_load_id,
+    lapso: createQualificationSchema.shape.body.shape.lapso,
+    tipo_evaluacion: createQualificationSchema.shape.body.shape.tipo_evaluacion,
+    
+    // El arreglo solo va a pedir el id del estudiante y la nota de cada uno
+    notas: z.array(
+      z.object({
+        student_id: createQualificationSchema.shape.body.shape.student_id,
+        nota: createQualificationSchema.shape.body.shape.nota
+      })
+    ).nonempty({
+      message: "El listado de notas no puede estar vacío."
+    })
+  })
+});
+
 module.exports = {
     createQualificationSchema,
-    updateQualificationSchema
+    updateQualificationSchema,
+    createBulkQualificationsSchema
 };

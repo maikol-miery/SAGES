@@ -11,22 +11,26 @@ const validateSchema = (schema) => (req, res, next) => {
         });
 
         // Sobrescribimos el req con los datos mutados de Zod para que pasen limpios al controlador
-        req.body = validatedData.body;
-        req.query = validatedData.query;
-        req.params = validatedData.params;
+        if (validatedData.body) req.body = validatedData.body;
+        if (validatedData.query) req.query = validatedData.query;
+        if (validatedData.params) req.params = validatedData.params;
         
         return next();
     } catch (error) {
         if (error instanceof ZodError) {
-            // 🔬 FORMATEADOR EXTREMO: Si .errors viene vacío, usamos flatten() 
-            // que desarma los errores por campos de forma ultra visual para el desarrollador.
-            const fieldErrors = error.flatten().fieldErrors;
+            // 🔬 EL CAMBIO ESTÁ AQUÍ:
+            // Mapeamos directamente los 'issues' de Zod para construir un arreglo limpio
+            const mappedErrors = error.issues.map(issue => ({
+                // issue.path suele ser un arreglo tipo ['body', 'estado']. 
+                // Tomamos siempre el último elemento para sacar el nombre real del campo.
+                campo: issue.path[issue.path.length - 1], 
+                mensaje: issue.message
+            }));
             
             return res.status(400).json({
                 status: 'error',
                 message: 'Error de validación en los datos de entrada',
-                // Si flatten viene vacío por algún motivo, mandamos los issues clásicos mapeados de forma segura
-                errors: Object.keys(fieldErrors).length > 0 ? fieldErrors : error.issues.map(i => ({ campo: i.path.join('.'), mensaje: i.message }))
+                errors: mappedErrors // Entregamos el arreglo perfecto para iterar en Nuxt
             });
         }
 

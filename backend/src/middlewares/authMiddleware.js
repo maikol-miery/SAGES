@@ -1,31 +1,46 @@
 const jwt = require('jsonwebtoken');
 
-// Este es el middleware principal
+// 1. Tu middleware principal (Ajustado al estándar { status, message })
 const authenticateToken = (req, res, next) => {
-    
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    // 2. Si no hay token, rechazamos la entrada
     if (!token) {
-        return res.status(401).json({ message: 'Acceso denegado. No se proporcionó un token.' });
+        return res.status(401).json({ 
+            status: 'error', 
+            message: 'Acceso denegado. No se proporcionó un token.' 
+        });
     }
 
     try {
-        // 3. Verificar si el token es válido y no ha expirado
-        // Usamos la "Secret Key" que definiste en tus variables de entorno
         const verified = jwt.verify(token, process.env.JWT_SECRET || 'clave_secreta_sages');
         
-        // 4. Guardar los datos del usuario verificado en el objeto req
-        // Esto permite que el controlador sepa QUIÉN está haciendo la operación
+        // ¡La magia que ya tenías hecha! Guarda el id y el rol
         req.user = verified;
 
-        // 5. ¡Pase adelante!
         next(); 
     } catch (error) {
-        // Si el token es falso o expiró
-        return res.status(403).json({ message: 'Token no válido o expirado.' });
+        return res.status(403).json({ 
+            status: 'error', 
+            message: 'Token no válido o expirado.' 
+        });
     }
 };
 
-module.exports = authenticateToken;
+// 2. El validador de roles para rutas exclusivas de la directiva
+const isAdmin = (req, res, next) => {
+    // Verificamos si el usuario es administrador
+    if (req.user.rol !== 'admin') {
+        return res.status(403).json({ 
+            status: 'error', 
+            message: 'Acceso denegado. Esta acción requiere privilegios de administrador.' 
+        });
+    }
+    next();
+};
+
+// Exportamos ambos
+module.exports = { 
+    authenticateToken, 
+    isAdmin 
+};
