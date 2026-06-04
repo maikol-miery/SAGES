@@ -6,7 +6,7 @@ const sectionsRoutes = require('./routes/sectionsRoutes');
 const subjectsRoutes = require('./routes/subjectsRoutes');
 const registrationRoutes = require('./routes/registrationRoutes');
 const academicLoadRoutes = require('./routes/academicLoadRoutes');
-const teacherRoutes = require('./routes/teacherRoutes');
+const staffRoutes = require('./routes/staffRoutes');
 const qualificationsRoutes = require('./routes/qualificationsRoutes');
 const sequelize = require('./databases/db_config');
 
@@ -29,7 +29,7 @@ app.use('/api/sections', sectionsRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/registrations', registrationRoutes);
 app.use('/api/academic-load', academicLoadRoutes)
-app.use('/api/teachers', teacherRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/qualifications', qualificationsRoutes);
 
 async function startServer() {
@@ -37,7 +37,7 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('✅ Conexión a PostgreSQL exitosa para SAGES.');
         
-        await sequelize.sync({ alter: true });
+        await sequelize.sync({ force: false });
         console.log('✅ Modelos sincronizados correctamente.');
 
         const PORT = process.env.PORT || 3001;

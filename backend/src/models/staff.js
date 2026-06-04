@@ -1,7 +1,7 @@
 const {DataTypes} = require("sequelize")
 const sequelize = require("../databases/db_config")
 
-const Teacher = sequelize.define('Teacher', {
+const Staff = sequelize.define('Teacher', {
     id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
@@ -32,12 +32,16 @@ const Teacher = sequelize.define('Teacher', {
             isEmail: true
         }
     },
+    tipo_personal: {
+        type: DataTypes.ENUM('docente', 'administrativo'),
+        allowNull: false
+    },
     estado: {
         type: DataTypes.STRING,
     }
 }, {
-    tableName: 'profesores',
+    tableName: 'personal',
     timestamps: true
 });
 
-module.exports = Teacher;
+module.exports = Staff;

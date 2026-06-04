@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  /* OLIVINE*/
+--color-olivine-50: #f2f8ed;
+--color-olivine-100: #e3f0d7;
+--color-olivine-200: #c9e2b4;
+--color-olivine-300: #a6ce88;
+--color-olivine-400: #92c071;
+--color-olivine-500: #689e44;
+--color-olivine-600: #4f7d33;
+--color-olivine-700: #3e602b;
+--color-olivine-800: #344e26;
+--color-olivine-900: #2e4324;
+--color-olivine-950: #15240f;
+
+  /* CHOCKING*/
+--color-shocking-50: #fcf3f8;
+--color-shocking-100: #fae9f4;
+--color-shocking-200: #f7d3e9;
+--color-shocking-300: #ee98cb;
+--color-shocking-400: #e87ebb;
+--color-shocking-500: #dd57a0;
+--color-shocking-600: #cb3780;
+--color-shocking-700: #af2766;
+--color-shocking-800: #912355;
+--color-shocking-900: #7a2149;
+--color-shocking-950: #4a0d28;
+}

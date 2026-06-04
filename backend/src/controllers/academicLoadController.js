@@ -1,63 +1,75 @@
-const { AcademicLoad, Teacher, Subject, Section } = require('../models');
+// backend/src/controllers/academicLoadController.js
+const { AcademicLoad, Staff, Subject, Section } = require('../models');
 
-const assignTeacher = async (req, res) =>{
+const assignTeacher = async (req, res) => {
+    try {
+        // 🔥 Cambiado teacher_id por staff_id
+        const { staff_id, subject_id, section_id, anio_escolar } = req.body;
 
-    try{
-        const {teacher_id, subject_id, section_id, anio_escolar} = req.body;
-
-        const [teacher, subject, section] = await Promise.all([
-            Teacher.findByPk(teacher_id),
+        const [staff, subject, section] = await Promise.all([
+            Staff.findByPk(staff_id),
             Subject.findByPk(subject_id),
             Section.findByPk(section_id)
         ]);
 
-        if(!teacher){
-            console.error("profesor no encontrado");
+        // 1. Validar que el registro exista en la tabla 'personal'
+        if (!staff) {
+            console.error("Personal no encontrado");
             return res.status(404).json({
-                msg:"El profesor ingresado no existe"
-            })
+                msg: "El docente ingresado no existe en el sistema."
+            });
         }
 
-        if(!section){
-            console.error("seccion no encontrada");
-            return res.status(404).json({
-                msg:"Seccion no encontrada"
-            })
+        // 🛡️ Candado de seguridad para SAGES: Verificar que el personal sea realmente un docente
+        if (staff.tipo_personal !== 'docente') {
+            console.error("El miembro del personal seleccionado no es un docente");
+            return res.status(400).json({
+                msg: "El miembro del personal seleccionado no está registrado con el rol de docente."
+            });
         }
 
-        if(!subject){
-            console.error("materia no encontrada");
+        if (!section) {
+            console.error("Sección no encontrada");
             return res.status(404).json({
-                msg:"La materia seleccionado no existe"
-            })
+                msg: "La sección seleccionada no existe."
+            });
         }
 
+        if (!subject) {
+            console.error("Materia no encontrada");
+            return res.status(404).json({
+                msg: "La materia seleccionada no existe."
+            });
+        }
+
+        // 👀 Buscamos si ya existe usando la nueva columna 'staff_id'
         const existingLoad = await AcademicLoad.findOne({
-                where: {
-                    teacher_id,
-                    subject_id,
-                    section_id
-                }
-            });
-
-            if (existingLoad) {
-                return res.status(400).json({
-                    msg: "Esta carga académica ya ha sido asignada previamente."
-                });
-            }
-
-            const newLoad = await AcademicLoad.create({
-                teacher_id, 
+            where: {
+                staff_id,
                 subject_id,
-                section_id,
-                anio_escolar: anio_escolar || "2025-2026", 
-                estado: "activo"
-            });
+                section_id
+            }
+        });
 
-            return res.status(201).json({
-                msg: "Carga académica asignada exitosamente",
-                data: newLoad
+        if (existingLoad) {
+            return res.status(400).json({
+                msg: "Esta carga académica ya ha sido asignada previamente."
             });
+        }
+
+        // 🚀 Creación del registro con la estructura correcta
+        const newLoad = await AcademicLoad.create({
+            staff_id, 
+            subject_id,
+            section_id,
+            anio_escolar: anio_escolar || "2026-2027", 
+            estado: "activo"
+        });
+
+        return res.status(201).json({
+            msg: "Carga académica asignada exitosamente",
+            data: newLoad
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({
@@ -71,9 +83,10 @@ const getAcademicLoads = async (req, res) => {
     try {
         const loads = await AcademicLoad.findAll({
             include: [
-                { model: Teacher, attributes: ['nombre', 'apellido'] },
+                // 👥 Cambiado Teacher por Staff para hacer el INNER JOIN correcto
+                { model: Staff, attributes: ['nombre', 'apellido'] },
                 { model: Subject, attributes: ['nombre'] },
-                { model: Section, attributes: ['grado', 'seccion'] }
+                { model: Section, attributes: ['grado', 'seccion'] } 
             ]
         });
 
@@ -99,7 +112,6 @@ const updateAcademicLoad = async (req, res) => {
     const dataToUpdate = { ...req.body };
 
     try {
-        // 1. Buscamos la carga académica por ID
         const academicLoad = await AcademicLoad.findByPk(id);
 
         if (!academicLoad) {
@@ -109,18 +121,15 @@ const updateAcademicLoad = async (req, res) => {
             });
         }
 
-        // 2. Protegemos el ID principal
+        // Protegemos el ID primario de modificaciones accidentales
         delete dataToUpdate.id;
 
-        // 3. Cargamos las modificaciones en memoria
         academicLoad.set(dataToUpdate);
 
-        // 4. Guardamos en PostgreSQL si hay cambios reales
         if (academicLoad.changed()) {
             await academicLoad.save();
         }
 
-        // 5. Refrescamos la instancia antes de responder
         await academicLoad.reload();
 
         return res.status(200).json({
@@ -140,7 +149,7 @@ const updateAcademicLoad = async (req, res) => {
 };
 
 module.exports = {
-    assignTeacher,
+    assignTeacher, // Mantenemos el nombre de exportación intacto para no romper tus archivos de rutas
     getAcademicLoads,
     updateAcademicLoad
 };

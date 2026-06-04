@@ -1,35 +1,58 @@
-const User = require('../models/User');
+// backend/src/controllers/authController.js
+const { User, Staff, sequelize } = require('../models'); // 🔄 Importación unificada
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const bcrypt = require('bcrypt');
 
 // 1. Registrar el Administrador Inicial (Setup)
 const registerAdmin = async (req, res) => {
+    const t = await sequelize.transaction(); // Transacción para operación multi-tabla
     try {
         const { nombre, apellido, email, username, password } = req.body;
 
-        const userExists = await User.findOne({ where: { email } });
-        if (userExists) {
+        // Validar si el correo ya existe en la tabla Staff
+        const staffExists = await Staff.findOne({ where: { email } });
+        if (staffExists) {
+            await t.rollback();
             return res.status(400).json({ status: 'error', message: 'El correo ya está registrado.' });
         }
 
-        const newAdmin = await User.create({
+        // Validar si el username ya existe en la tabla User
+        const userExists = await User.findOne({ where: { username } });
+        if (userExists) {
+            await t.rollback();
+            return res.status(400).json({ status: 'error', message: 'El nombre de usuario ya está en uso.' });
+        }
+
+        // A. Crear el perfil físico del Admin en Staff
+        const newStaffAdmin = await Staff.create({
+            cedula: 'V-00000000', // Cédula genérica por ser el setup inicial del sistema
             nombre,
             apellido,
             email,
+            tipo_personal: 'administrativo',
+            estado: 'activo'
+        }, { transaction: t });
+
+        // B. Crear la cuenta de acceso vinculada
+        const newAdminUser = await User.create({
             username,
             password,
-            rol: 'admin' // Forzado por la ruta setup
-        });
+            rol: 'admin',
+            staff_id: newStaffAdmin.id // Vinculación de la FK
+        }, { transaction: t });
+
+        await t.commit();
 
         return res.status(201).json({
             status: 'success',
             message: 'Administrador creado con éxito',
             data: {
-                user: { id: newAdmin.id, username: newAdmin.username, rol: newAdmin.rol }
+                user: { id: newAdminUser.id, username: newAdminUser.username, rol: newAdminUser.rol }
             }
         });
     } catch (error) {
+        await t.rollback();
         console.error(error);
         return res.status(500).json({ status: 'error', message: 'Error al registrar el administrador.' });
     }
@@ -38,16 +61,20 @@ const registerAdmin = async (req, res) => {
 // 2. Iniciar Sesión (Login)
 const login = async (req, res) => {
     try {
-        const { username, password } = req.body; // 🎯 Cambiamos 'username' por 'username'
+        const { username, password } = req.body; 
 
-        // Buscamos al usuario si coincide con el username O con el email
+        // ✨ Buscamos en User, pero incluyendo Staff para evaluar el email mediante un LEFT JOIN
         const user = await User.findOne({ 
             where: {
                 [Op.or]: [
                     { username: username },
-                    { email: username }
+                    { '$perfil.email$': username } // Busca en la columna email de la tabla Staff usando el alias 'perfil'
                 ]
-            }
+            },
+            include: [{
+                model: Staff,
+                as: 'perfil' // Alias configurado en index.js
+            }]
         });
 
         if (!user) {
@@ -55,7 +82,7 @@ const login = async (req, res) => {
                 status: 'error', 
                 message: 'Error de autenticación',
                 errors: [
-                    { campo: 'username', mensaje: 'El nombre de usuario no está registrado.' }
+                    { campo: 'username', mensaje: 'El nombre de usuario o correo no está registrado.' }
                 ]
             });
         }
@@ -72,6 +99,7 @@ const login = async (req, res) => {
             });
         }
 
+        // Payload del JWT
         const payload = { id: user.id, rol: user.rol };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
 
@@ -80,7 +108,13 @@ const login = async (req, res) => {
             message: 'Login exitoso',
             data: {
                 token,
-                user: { id: user.id, nombre: user.nombre, rol: user.rol }
+                // Extraemos nombre y apellido directamente desde el perfil físico anidado
+                user: { 
+                    id: user.id, 
+                    nombre: user.perfil ? user.perfil.nombre : 'Usuario', 
+                    apellido: user.perfil ? user.perfil.apellido : '',
+                    rol: user.rol 
+                }
             }
         });
     } catch (error) {
@@ -89,48 +123,11 @@ const login = async (req, res) => {
     }
 };
 
-// 3. Registrar Personal (Nueva: Solo accesible por Admin)
-const registerStaff = async (req, res) => {
-    try {
-        const { nombre, apellido, email, username, password, rol } = req.body;
-
-        const userExists = await User.findOne({ where: { email } });
-        if (userExists) {
-            return res.status(400).json({ status: 'error', message: 'El correo ya está registrado.' });
-        }
-
-        const usernameExists = await User.findOne({ where: { username } });
-        if (usernameExists) {
-            return res.status(400).json({ status: 'error', message: 'El nombre de usuario ya está en uso.' });
-        }
-
-        const newStaff = await User.create({
-            nombre,
-            apellido,
-            email,
-            username,
-            password,
-            rol: rol || 'secretaria' // Si no viene rol, por defecto es secretaria
-        });
-
-        return res.status(201).json({
-            status: 'success',
-            message: `Usuario con rol de ${newStaff.rol} creado exitosamente.`,
-            data: {
-                user: { id: newStaff.id, username: newStaff.username, rol: newStaff.rol }
-            }
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ status: 'error', message: 'Error al registrar al miembro del personal.' });
-    }
-};
-
-// 4. Cambiar Contraseña (Nueva: Para cualquier usuario logueado)
+// 4. Cambiar Contraseña (Sin cambios drásticos, solo interactúa con la tabla User)
 const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
-        const userId = req.user.id; // Inyectado por tu middleware authenticateToken
+        const userId = req.user.id; 
 
         const user = await User.findByPk(userId);
         if (!user) {
@@ -142,7 +139,6 @@ const changePassword = async (req, res) => {
             return res.status(401).json({ status: 'error', message: 'La contraseña actual es incorrecta.' });
         }
 
-        // El hook beforeUpdate del modelo se encarga de aplicar el hash automáticamente
         user.password = newPassword;
         await user.save();
 
@@ -156,28 +152,32 @@ const changePassword = async (req, res) => {
     }
 };
 
+// 5. Verificar Preguntas de Seguridad (Búsqueda adaptada a la relación con Staff)
 const verifySecurityQuestions = async (req, res) => {
     try {
         const { username, answer1, answer2 } = req.body;
 
-        // Buscar al usuario por su nombre de usuario
-        const user = await User.findOne({ where: {
+        // Buscamos cruzando con staff, pero agregamos la condición obligatoria de que el rol sea 'admin'
+        const user = await User.findOne({ 
+            where: {
                 [Op.or]: [
                     { username: username },
-                    { email: username }
-                ]
-            }
+                    { '$perfil.email$': username }
+                ],
+                rol: 'admin' // 🔥 CANDADO: Solo los administradores tienen permitido este flujo
+            },
+            include: [{ model: Staff, as: 'perfil' }]
         });
+        
+        // Si no existe o no es admin, devolvemos un mensaje genérico por seguridad
         if (!user) {
-            return res.status(404).json({ status: 'error', message: 'Usuario no encontrado.' });
+            return res.status(404).json({ status: 'error', message: 'Usuario administrador no encontrado.' });
         }
 
-        // Validar que el usuario tenga las preguntas y respuestas configuradas en la DB
         if (!user.preguntaSeguridad1 || !user.respuestaSeguridad1 || !user.respuestaSeguridad2) {
-            return res.status(400).json({ status: 'error', message: 'El usuario no tiene preguntas configuradas.' });
+            return res.status(400).json({ status: 'error', message: 'El administrador no tiene preguntas configuradas.' });
         }
 
-        // Comparar las respuestas limpiando espacios y pasando a minúsculas
         const match1 = await bcrypt.compare(answer1.toLowerCase().trim(), user.respuestaSeguridad1);
         const match2 = await bcrypt.compare(answer2.toLowerCase().trim(), user.respuestaSeguridad2);
 
@@ -185,7 +185,6 @@ const verifySecurityQuestions = async (req, res) => {
             return res.status(401).json({ status: 'error', message: 'Las respuestas de seguridad son incorrectas.' });
         }
 
-        // Generar el token temporal que expira en 5 minutos
         const temporaryToken = jwt.sign(
             { id: user.id, username: user.username, resetPermitted: true },
             process.env.JWT_SECRET,
@@ -204,7 +203,7 @@ const verifySecurityQuestions = async (req, res) => {
     }
 };
 
-// Paso 2: Validar el token temporal y cambiar la contraseña definitivamente
+// 6. Restablecer Contraseña (Lógica intacta sobre la tabla User)
 const resetPassword = async (req, res) => {
     try {
         const { temporaryToken, newPassword } = req.body;
@@ -213,7 +212,6 @@ const resetPassword = async (req, res) => {
             return res.status(400).json({ status: 'error', message: 'Token de restablecimiento requerido.' });
         }
 
-        // Verificar la validez y expiración del token temporal
         let decoded;
         try {
             decoded = jwt.verify(temporaryToken, process.env.JWT_SECRET);
@@ -224,13 +222,11 @@ const resetPassword = async (req, res) => {
             });
         }
 
-        // Buscar al usuario utilizando el ID almacenado en el token
         const user = await User.findByPk(decoded.id);
         if (!user) {
             return res.status(404).json({ status: 'error', message: 'Usuario no encontrado.' });
         }
 
-        // Actualizar la contraseña (el hook del modelo se encargará del hash)
         user.password = newPassword;
         await user.save();
 
@@ -245,44 +241,58 @@ const resetPassword = async (req, res) => {
     }
 };
 
+// 7. Actualizar Perfil Mixto (Modifica datos en ambas tablas de forma segura)
 const updateProfile = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
         const { nombre, apellido, email, username, question1, answer1, question2, answer2 } = req.body;
 
-        const user = await User.findByPk(req.user.id);
+        const user = await User.findByPk(req.user.id, {
+            include: [{ model: Staff, as: 'perfil' }]
+        });
+        
         if (!user) {
+            await t.rollback();
             return res.status(404).json({ status: 'error', message: 'Usuario no encontrado.' });
         }
 
-        // Si el frontend envía el campo, lo actualizamos; si no, se queda igual
-        if (nombre) user.nombre = nombre;
-        if (apellido) user.apellido = apellido;
-        if (email) user.email = email;
+        // A. Actualizar campos demográficos en la tabla Staff
+        if (user.perfil) {
+            if (nombre) user.perfil.nombre = nombre;
+            if (apellido) user.perfil.apellido = apellido;
+            if (email) user.perfil.email = email;
+            await user.perfil.save({ transaction: t });
+        }
+
+        // B. Actualizar campos propios de User
         if (username) user.username = username;
         
-        if (question1) user.preguntaSeguridad1 = question1;
-        if (answer1) user.respuestaSeguridad1 = answer1; // El hook le aplicará el hash
-        if (question2) user.preguntaSeguridad2 = question2;
-        if (answer2) user.respuestaSeguridad2 = answer2; // El hook le aplicará el hash
+        // 🔥 CANDADO: Solo si el rol es 'admin' procesamos las preguntas de seguridad
+        if (user.rol === 'admin') {
+            if (question1) user.preguntaSeguridad1 = question1;
+            if (answer1) user.respuestaSeguridad1 = answer1; 
+            if (question2) user.preguntaSeguridad2 = question2;
+            if (answer2) user.respuestaSeguridad2 = answer2; 
+        }
 
-        // PostgreSQL y Sequelize validarán automáticamente si el email o username ya existen
-        await user.save();
+        await user.save({ transaction: t });
+        await t.commit();
 
         return res.status(200).json({
             status: 'success',
             message: 'Perfil actualizado correctamente.',
             user: {
-                nombre: user.nombre,
-                apellido: user.apellido,
-                email: user.email,
+                nombre: user.perfil ? user.perfil.nombre : '',
+                apellido: user.perfil ? user.perfil.apellido : '',
+                email: user.perfil ? user.perfil.email : '',
                 username: user.username
             }
         });
 
     } catch (error) {
+        await t.rollback();
         console.error(error);
         
-        // Manejo específico por si el nuevo username o email ya están en uso
         if (error.name === 'SequelizeUniqueConstraintError') {
             return res.status(400).json({ 
                 status: 'error', 
@@ -294,11 +304,9 @@ const updateProfile = async (req, res) => {
     }
 };
 
-// 🎯 Exportación unificada en un solo objeto
 module.exports = {
     registerAdmin,
     login,
-    registerStaff,
     changePassword,
     verifySecurityQuestions,
     resetPassword,

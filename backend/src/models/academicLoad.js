@@ -23,7 +23,7 @@ const AcademicLoad = sequelize.define('AcademicLoad', {
         {
             // Un profesor no puede tener asignada la misma materia en la misma sección dos veces
             unique: true,
-            fields: ['teacher_id', 'subject_id', 'section_id']
+            fields: ['staff_id', 'subject_id', 'section_id']
         }
     ]
 });
