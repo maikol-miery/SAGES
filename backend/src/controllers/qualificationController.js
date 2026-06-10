@@ -1,4 +1,3 @@
-// 🎯 Importamos Registration junto a tus otros modelos
 const { Qualification, AcademicLoad, Student, Registration, sequelize } = require('../models');
 
 // 1. REGISTRAR UNA SOLA NOTA (POST /api/qualifications)
@@ -6,17 +5,15 @@ const saveQualification = async (req, res, next) => {
     try {
         const { student_id, academic_load_id, lapso, nota, tipo_evaluacion } = req.body;
 
-        // Buscamos la carga académica primero para saber de qué sección es la materia
         const academicLoad = await AcademicLoad.findByPk(academic_load_id);
         if (!academicLoad) {
             return res.status(404).json({ status: "error", message: "La carga académica no existe." });
         }
 
-        // 🔒 CANDADO: Verificamos que el estudiante tenga una inscripción activa EN ESA SECCIÓN
         const registration = await Registration.findOne({
             where: {
                 student_id,
-                section_id: academicLoad.section_id // Deben coincidir obligatoriamente
+                section_id: academicLoad.section_id 
             }
         });
 
@@ -27,7 +24,6 @@ const saveQualification = async (req, res, next) => {
             });
         }
 
-        // Verificar si ya existe la nota para este lapso (Evita duplicados en POST)
         const existing = await Qualification.findOne({ where: { student_id, academic_load_id, lapso } });
         if (existing) {
             return res.status(409).json({ 
@@ -36,7 +32,6 @@ const saveQualification = async (req, res, next) => {
             });
         }
 
-        // Si pasa los filtros, se crea la calificación
         const newQualification = await Qualification.create({
             student_id, academic_load_id, lapso, nota, tipo_evaluacion
         });

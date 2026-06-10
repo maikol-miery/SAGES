@@ -22,7 +22,7 @@ User.belongsTo(Staff, { foreignKey: 'staff_id', as: 'perfil' });
 
 // 1. Relación Estudiante - Representante (1:N)
 Representative.hasMany(Student, { foreignKey: 'representative_id' });
-Student.belongsTo(Representative, { foreignKey: 'representative_id' });
+Student.belongsTo(Representative, { foreignKey: 'representative_id', as: 'Representative'});
 
 
 // 2. Inscripción: Relación Estudiante - Sección (M:N a través de Registration)

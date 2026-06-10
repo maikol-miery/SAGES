@@ -129,7 +129,6 @@ import { loginSchema } from '~/schemas/auth.js'
 const loading = ref(false)
 const toast = useToast()
 const showPassword = ref(false)
-const password = ref('')
 
 const state = reactive({
   username: '',
@@ -141,8 +140,7 @@ async function onSubmit(event) {
   loading.value = true
   
   try {
-    // 2. Realizamos la petición POST usando $fetch
-    // Reemplaza '/api/auth/login' por la URL real de tu backend
+    // 2. Realizamos la petición POST usando tu composable useApi
     const response = await useApi('/auth/login', {
       method: 'POST',
       body: {
@@ -154,23 +152,40 @@ async function onSubmit(event) {
     // 3. Si el backend responde con éxito, aquí tienes tu JSON con el token
     console.log('Respuesta del Backend:', response)
     
-    if (response.data && response.data.token) {
+    // ==========================================================
+    // 🔴 LA PIEZA QUE FALTA: Declarar de dónde salen token y usuario
+    // Como response ya trae { status, message, data }, sacamos token y user de response.data
+    // ==========================================================
+    const token = response?.data?.token
+    const usuario = response?.data?.user
+
+    // 4. Ahora el IF sí sabe qué está evaluando y no dará undefined
+    if (token && usuario) {
+      // Creamos las cookies en el navegador
       const tokenCookie = useCookie('token', { maxAge: 60 * 60 * 24 })
-      tokenCookie.value = response.data.token
+      const roleCookie = useCookie('user_role', { maxAge: 60 * 60 * 24 })
+      const nameCookie = useCookie('user_name', { maxAge: 60 * 60 * 24 })
+
+      // Asignamos los valores reales de tu base de datos en Postgres
+      tokenCookie.value = token
+      nameCookie.value = usuario.nombre
+      roleCookie.value = usuario.rol  // 'rol' con 'l' como viene del backend
       
-      // Toast opcional de éxito antes de irse al dashboard
+      // Toast de éxito antes de irse al dashboard
       toast.add({
         title: '¡Acceso concedido!',
         description: 'Bienvenido al sistema SAGES.',
-        color: 'green',
+        color: "primary",
         icon: 'i-heroicons-check-circle'
       })
 
       await navigateTo('/dashboard')
+    } else {
+      console.warn('El backend respondió, pero el JSON no traía el token o el usuario esperado.')
     }
 
   } catch (error) {
-    // 4. Si el backend devuelve un error (ej: 401 Credenciales Incorrectas)
+    // 5. Si el backend devuelve un error (ej: 401 Credenciales Incorrectas)
     console.error('Error en el login:', error.data)
     
     let mensajeFinal = 'Ocurrió un error inesperado.'
@@ -178,20 +193,19 @@ async function onSubmit(event) {
     if (error.data?.errors && error.data.errors.length > 0) {
       mensajeFinal = error.data.errors[0].mensaje
     } else if (error.data?.message) {
-      // Respaldo por si viene solo el mensaje genérico
       mensajeFinal = error.data.message
     }
 
-    // 3. Disparamos el Toast con el nombre de tu variable corregido
+    // Disparamos el Toast de error
     toast.add({
       title: 'No se pudo iniciar sesión',
-      description: mensajeFinal, // <-- Aquí ya no se romperá
+      description: mensajeFinal,
       icon: 'i-heroicons-exclamation-triangle',
-      color: 'error', // O usa 'red' si tu config de Nuxt UI mapea el estado de error ahí
+      color: "error", // Cambiado a 'red' que es el estándar de Nuxt UI
       timeout: 3000
     })
   } finally {
-    // 5. Apagamos el loading siempre, pase lo que pase
+    // 6. Apagamos el loading siempre, pase lo que pase
     loading.value = false
   }
 }

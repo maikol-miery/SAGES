@@ -37,7 +37,7 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('✅ Conexión a PostgreSQL exitosa para SAGES.');
         
-        await sequelize.sync({ force: false });
+        await sequelize.sync({ alter: true });
         console.log('✅ Modelos sincronizados correctamente.');
 
         const PORT = process.env.PORT || 3001;

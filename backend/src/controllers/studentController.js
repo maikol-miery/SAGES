@@ -66,9 +66,27 @@ const registerStudent = async (req, res) => {
 
 const getAllStudents = async (req, res) => {
     try {
+        // 1. Capturamos la query que manda el frontend (Filtro de búsqueda)
+        const { search } = req.query;
+
+        // 2. Construimos el condicional dinámico si el usuario escribe algo
+        let condicional = {};
+        if (search) {
+            condicional = {
+                [Op.or]: [
+                    { cedula: { [Op.iLike]: `%${search}%` } }, // Cambia a Op.like si usas MySQL en vez de PostgreSQL
+                    { nombre: { [Op.iLike]: `%${search}%` } },
+                    { apellido: { [Op.iLike]: `%${search}%` } }
+                ]
+            };
+        }
+
+        // 3. Tu consulta original findAll agregando el filtro dinámico 'where'
         const students = await Student.findAll({
+            where: condicional, // 🎯 Filtra solo si viene un query de búsqueda
             include: [{ model: Representative }] 
         });
+
         return res.status(200).json({
             status: 'success',
             count: students.length,

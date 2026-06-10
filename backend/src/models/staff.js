@@ -38,6 +38,8 @@ const Staff = sequelize.define('Teacher', {
     },
     estado: {
         type: DataTypes.STRING,
+        defaultValue: "activo",
+        allowNull: true
     }
 }, {
     tableName: 'personal',

@@ -1,4 +1,93 @@
-const { Registration, Student, Section, sequelize } = require('../models');
+const { Registration, Student, Section, Representative, sequelize } = require('../models');
+const { Op } = require('sequelize');
+
+const getAllRegistrations = async (req, res) => {
+    try {
+        // 1. Capturamos los parámetros de paginación y filtros que envía el frontend
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const offset = (page - 1) * limit;
+
+        const { search, year, section, status } = req.query;
+
+        // 2. Inicializamos los bloques de condiciones dinámicas vacíos
+        let studentWhere = {};
+        let sectionWhere = {};
+
+        // 🔍 FILTRO DE TEXTO: Búsqueda global (Cédula, Nombre, Apellido)
+        if (search && search.trim() !== '') {
+            studentWhere[Op.or] = [
+                { cedula: { [Op.iLike]: `%${search.trim()}%` } },
+                { nombre: { [Op.iLike]: `%${search.trim()}%` } },
+                { apellido: { [Op.iLike]: `%${search.trim()}%` } }
+            ];
+        }
+
+        // 🎯 FILTRO DE ESTATUS: Se ejecuta solo si es diferente a 'Todos' y no viene vacío
+        if (status && status !== 'Todos' && status.trim() !== '') {
+            // Se pasa a minúsculas porque tu base de datos almacena 'activo', 'retirado', etc.
+            studentWhere.estado = status.toLowerCase(); 
+        }
+
+        // 🎯 FILTRO DE AÑO: Convierte el texto "1er Año", "2do Año" al formato numérico de tu base de datos
+        if (year && year !== 'Todos' && year.trim() !== '') {
+            // Si viene "1er Año", charAt(0) extrae exactamente "1"
+            sectionWhere.grado = year.trim().charAt(0); 
+        }
+
+        // 🎯 FILTRO DE SECCIÓN: Se ejecuta solo si selecciona una sección real (A, B, C...)
+        if (section && section !== 'Todas' && section.trim() !== '') {
+            sectionWhere.seccion = section.toUpperCase().trim();
+        }
+
+        // 3. Ejecutamos la consulta relacional con conteo estricto y paginación
+        const { count, rows } = await Registration.findAndCountAll({
+            distinct: true, // Evita duplicados en el conteo debido a los múltiples JOINs con PostgreSQL
+            limit: limit,
+            offset: offset,
+            include: [
+                {
+                    model: Section,
+                    attributes: ['id', 'grado', 'seccion', 'anio_escolar'],
+                    // Si el objeto sectionWhere tiene propiedades, inyecta el condicional; si no, lo ignora
+                    ...(Object.keys(sectionWhere).length > 0 && { where: sectionWhere })
+                },
+                {
+                    model: Student,
+                    attributes: ['id', 'cedula', 'nombre', 'apellido', 'estado', 'createdAt'],
+                    // Si el objeto studentWhere tiene propiedades, inyecta el condicional; si no, lo ignora
+                    ...(Object.keys(studentWhere).length > 0 && { where: studentWhere }),
+                    include: [
+                        {
+                            model: Representative,
+                            as: 'Representative', // Alias limpio corregido de la base de datos
+                            attributes: ['id', 'nombre', 'apellido', 'cedula']
+                        }
+                    ]
+                }
+            ],
+            // Ordenación alfabética por el apellido del estudiante
+            order: [[Student, 'apellido', 'ASC']]
+        });
+
+        // 4. Retornamos la respuesta estructurada bajo tu estándar de paginación
+        return res.status(200).json({
+            status: 'success',
+            totalItems: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener inscripciones paginadas en SAGES:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error al obtener el listado académico paginado',
+            error: error.message
+        });
+    }
+};
 
 const registerStudent = async (req, res) => {
     try {
@@ -165,4 +254,10 @@ const updateRegistration = async (req, res) => {
     }
 };
 
-module.exports = { registerStudent, saveBulkRegistrations, updateRegistration };
+module.exports = 
+{ 
+    registerStudent, 
+    saveBulkRegistrations, 
+    updateRegistration,
+    getAllRegistrations 
+};
