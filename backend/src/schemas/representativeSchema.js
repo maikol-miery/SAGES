@@ -28,7 +28,8 @@ const createRepresentativeSchema = z.object({
             .email("El formato del correo electrónico es inválido.")
             .max(100, "El correo electrónico es demasiado largo.")
             .optional()
-            .nullable(), // Al ser opcional en BD, permitimos que no venga o sea null
+            .nullable()
+            .or(z.literal('')), // Al ser opcional en BD, permitimos que no venga o sea null
             
         parentesco: z.string()
             .trim()

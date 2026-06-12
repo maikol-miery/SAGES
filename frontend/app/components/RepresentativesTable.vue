@@ -1,15 +1,19 @@
 <script setup>
 import { ref, h, resolveComponent, watch, onMounted } from 'vue'
+import { email } from 'zod'
 
 // 1. Inyección explícita de subcomponentes para el renderizado de celdas
 const UButton = resolveComponent('UButton')
 const UBadge = resolveComponent('UBadge')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 
+// Referencia reactiva para controlar el componente deslizante
+const repSlideoverRef = ref(null)
+
 // Estado reactivo exigido por Nuxt UI para controlar el despliegue de filas
 const expanded = ref({})
 
-// 2. Configuración de Columnas con botón de expansión incluido
+// 2. Configuración de Columnas con el menú de acciones conectado al Slideover
 const columns = [
   {
     id: 'expand',
@@ -35,13 +39,27 @@ const columns = [
   { accessorKey: 'cedula', header: 'CÉDULA' },
   { accessorKey: 'nombreCompleto', header: 'REPRESENTANTE' },
   { accessorKey: 'telefono', header: 'TELÉFONO' },
+  { accessorKey: 'email', header: 'CORREO' },
   { accessorKey: 'parentesco', header: 'PARENTESCO' },
   {
     id: 'acciones',
     header: 'ACCIONES',
-    cell: () => h(UDropdownMenu, {
+    cell: ({ row }) => h(UDropdownMenu, {
       content: { align: 'end' },
-      items: [[{ label: 'Ver detalles', icon: 'i-lucide-user' }, { label: 'Editar datos', icon: 'i-lucide-pencil' }]]
+      items: [
+        [
+          { 
+            label: 'Ver detalles', 
+            icon: 'i-lucide-user',
+            onClick: () => repSlideoverRef.value?.open('view', row.original.rawRepresentativeData)
+          }, 
+          { 
+            label: 'Editar datos', 
+            icon: 'i-lucide-pencil',
+            onClick: () => repSlideoverRef.value?.open('edit', row.original.rawRepresentativeData)
+          }
+        ]
+      ]
     }, () => h(UButton, { icon: 'i-lucide-ellipsis-vertical', color: 'neutral', variant: 'ghost' }))
   }
 ]
@@ -76,8 +94,21 @@ const cargarRepresentantes = async () => {
         cedula: rep.cedula || 'S/C',
         nombreCompleto: `${rep.apellido || ''} ${rep.nombre || ''}`.toUpperCase(),
         telefono: rep.telefono || 'No posee',
+        email: rep.email || 'No registrado',
         parentesco: (rep.parentesco || 'No especificado').toUpperCase(),
-        alumnosRaw: rep.Students || [] // Captura la relación de estudiantes mapeada en Sequelize
+        alumnosRaw: rep.Students || [], // Captura la relación de estudiantes mapeada en Sequelize
+        
+        // 🎯 Empaquetamos la data limpia y sin mutaciones para mandarla directo al Slideover
+        rawRepresentativeData: {
+          id: rep.id,
+          cedula: rep.cedula || '',
+          nombre: rep.nombre || '',
+          apellido: rep.apellido || '',
+          telefono: rep.telefono || '',
+          email: rep.email, // Por si manejas correos en la DB
+          parentesco: rep.parentesco || '',
+          alumnosAsociados: rep.Students || []
+        }
       }))
     } else {
       representantes.value = []
@@ -142,15 +173,15 @@ onMounted(() => {
                 class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm"
               >
                 <div class="flex flex-col">
-                  <span class="text-sm font-md text-gray-800 uppercase">
+                  <span class="text-sm font-medium text-gray-800 uppercase">
                     {{ estudiante.apellido }} {{ estudiante.nombre }}
                   </span>
                   <span class="text-xs text-gray-400 font-mono">
                     C.I: {{ estudiante.cedula || 'S/C' }}
                   </span>
                 </div>
-                <UBadge variant="subtle" color="success" class="text-[9px] font-bold">
-                  {{ estudiante.estado }}
+                <UBadge variant="subtle" color="success" class="text-[9px] font-bold uppercase">
+                  {{ estudiante.estado || 'ACTIVO' }}
                 </UBadge>
               </div>
             </div>
@@ -170,5 +201,7 @@ onMounted(() => {
           <UPagination v-model:page="page" :items-per-page="10" :total="totalRepresentantes" />
       </div>
     </div>
+
+    <RepresentativeSlideover ref="repSlideoverRef" @refresh="cargarRepresentantes" />
   </div>
 </template>

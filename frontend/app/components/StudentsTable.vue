@@ -1,20 +1,15 @@
 <script setup>
 import { ref, h, resolveComponent, watch, onMounted } from 'vue'
 
-// 1. Declaración de la Prop obligatoria para recibir el Slideover desde el componente padre
-const props = defineProps({
-  slideover: {
-    type: Object,
-    required: true
-  }
-})
-
 // Componentes de Nuxt UI v3 mapeados para el renderizado de celdas
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
 const UDropdownMenu = resolveComponent('UDropdownMenu')
 
-// 2. Definición de Columnas adaptada con inyección directa del Slideover
+// Referencia local única para controlar el Slideover propio de esta tabla
+const studentSlideRef = ref(null)
+
+// 2. Definición de Columnas adaptada para usar la referencia interna local
 const columns = [
   {
     accessorKey: 'cedula',
@@ -54,17 +49,17 @@ const columns = [
       UDropdownMenu,
       {
         content: { align: 'end' },
-        // Accedemos a la prop slideover a través de "props.slideover" e inyectamos los datos limpios de la fila
+        // Apuntamos directamente a "studentSlideRef.value" pasándole solo el modo y los datos limpios
         items: [[
           { 
             label: 'Ver expediente', 
             icon: 'i-lucide-eye',
-            onSelect: () => props.slideover.open('student', 'view', row.original.rawStudentData)
+            onSelect: () => studentSlideRef.value?.open('view', row.original.rawStudentData)
           }, 
           { 
             label: 'Editar alumno', 
             icon: 'i-lucide-pencil',
-            onSelect: () => props.slideover.open('student', 'edit', row.original.rawStudentData)
+            onSelect: () => studentSlideRef.value?.open('edit', row.original.rawStudentData)
           }
         ]]
       },
@@ -121,22 +116,39 @@ const cargarEstudiantes = async () => {
 
         return {
           id: inscripcion.id,
-          cedula: student.cedula || 'S/C',
-          nombreCompleto: `${student.apellido || ''} ${student.nombre || ''}`.toUpperCase(),
-          seccion_format: section.grado ? `${section.grado} '${section.seccion}'` : 'Por asignar',
-          representante: representative.nombre 
-            ? `${representative.apellido || ''} ${representative.nombre}`.toUpperCase() 
+          cedula: inscripcion.Student?.cedula || 'S/C',
+          nombreCompleto: `${inscripcion.Student?.apellido || ''} ${inscripcion.Student?.nombre || ''}`.toUpperCase(),
+          seccion_format: inscripcion.Section?.grado ? `${inscripcion.Section.grado} '${inscripcion.Section.seccion}'` : 'Por asignar',
+          representante: inscripcion.Student?.Representative?.nombre 
+            ? `${inscripcion.Student.Representative.apellido || ''} ${inscripcion.Student.Representative.nombre}`.toUpperCase() 
             : 'NO ASIGNADO',
-          estado: (student.estado || 'ACTIVO').toUpperCase(),
+          estado: (inscripcion.Student?.estado || 'ACTIVO').toUpperCase(),
           fechaInscrito: `Inscrito en ${fechaFormat}`,
           
-          // Adjuntamos los datos nativos limpios en un sub-objeto para que los consuma el Slideover directamente
+          // 🎯 El cofre de datos que consumirá el Slideover directamente
           rawStudentData: {
-            id: student.id || inscripcion.id,
-            cedula: student.cedula || '',
-            nombre: student.nombre || '',
-            apellido: student.apellido || '',
-            estado: (student.estado || 'ACTIVO').toUpperCase()
+            id: inscripcion.Student?.id || inscripcion.id,
+            cedula: inscripcion.Student?.cedula || '',
+            nombre: inscripcion.Student?.nombre || '',
+            apellido: inscripcion.Student?.apellido || '',
+            genero: inscripcion.Student?.genero || 'No definido',
+            direccion: inscripcion.Student?.direccion || 'No registrada',
+            estado: (inscripcion.Student?.estado || 'ACTIVO').toUpperCase(),
+            
+            // 🛠️ Solución al snake_case: pasamos fecha_nacimiento al camelCase que espera el Slideover
+            fechaNacimiento: inscripcion.Student?.fecha_nacimiento || '',
+            fechaInscripcionFormat: fechaFormat,
+            
+            grado: inscripcion.Section?.grado || 'Por asignar',
+            seccion: inscripcion.Section?.seccion || '',
+            
+            // 🗂️ Mapeamos la ficha del representante usando los nombres de la consola
+            representanteData: {
+              nombre: inscripcion.Student?.Representative?.nombre || '',
+              apellido: inscripcion.Student?.Representative?.apellido || '',
+              cedula: inscripcion.Student?.Representative?.cedula || 'No registrada',
+              telefono: inscripcion.Student?.Representative?.telefono || 'No registrado'
+            }
           }
         }
       })
@@ -212,5 +224,7 @@ onMounted(() => {
         <UPagination v-model:page="page" :items-per-page="10" :total="totalAlumnos" />
       </div>
     </div>
+
+    <StudentSlideover ref="studentSlideRef" />
   </div>
 </template>

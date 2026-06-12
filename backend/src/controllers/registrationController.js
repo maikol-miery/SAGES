@@ -49,19 +49,19 @@ const getAllRegistrations = async (req, res) => {
                 {
                     model: Section,
                     attributes: ['id', 'grado', 'seccion', 'anio_escolar'],
-                    // Si el objeto sectionWhere tiene propiedades, inyecta el condicional; si no, lo ignora
                     ...(Object.keys(sectionWhere).length > 0 && { where: sectionWhere })
                 },
                 {
                     model: Student,
-                    attributes: ['id', 'cedula', 'nombre', 'apellido', 'estado', 'createdAt'],
-                    // Si el objeto studentWhere tiene propiedades, inyecta el condicional; si no, lo ignora
+                    // 🛠️ AGREGAMOS: fechaNacimiento, genero y direccion
+                    attributes: ['id', 'cedula', 'nombre', 'apellido', 'estado', 'createdAt', 'fecha_nacimiento', 'genero', 'direccion'],
                     ...(Object.keys(studentWhere).length > 0 && { where: studentWhere }),
                     include: [
                         {
                             model: Representative,
-                            as: 'Representative', // Alias limpio corregido de la base de datos
-                            attributes: ['id', 'nombre', 'apellido', 'cedula']
+                            as: 'Representative',
+                            // 🛠️ AGREGAMOS: telefono
+                            attributes: ['id', 'nombre', 'apellido', 'cedula', 'telefono']
                         }
                     ]
                 }
