@@ -1,4 +1,5 @@
 const { Registration, Student, Section, Representative, sequelize } = require('../models');
+
 const { Op } = require('sequelize');
 
 const getAllRegistrations = async (req, res) => {
@@ -254,10 +255,48 @@ const updateRegistration = async (req, res) => {
     }
 };
 
+const { updateStudentSchema } = require('../schemas/studentSchema'); 
+const { updateRegistrationSchema } = require('../schemas/registrationSchema');
+
+const updateFullRegistration = async (req, res) => {
+    const { id } = req.params;
+    const t = await sequelize.transaction();
+
+    try {
+        // Accede a los datos directamente, SIN esquemas de Zod
+        const { grado, seccion, cedula, nombre, apellido, fecha_nacimiento, genero, direccion } = req.body;
+
+        // 1. Buscamos la inscripción
+        const registration = await Registration.findByPk(id, { transaction: t });
+        if (!registration) throw new Error("Inscripción no encontrada.");
+
+        // 2. Buscamos al estudiante
+        const student = await Student.findByPk(registration.student_id, { transaction: t });
+        if (!student) throw new Error("Estudiante no encontrado.");
+
+        // 3. Buscamos la sección
+        const section = await Section.findOne({ where: { grado, seccion }, transaction: t });
+        if (!section) throw new Error("Sección no encontrada.");
+
+        // 4. Actualizamos
+        await student.update({ cedula, nombre, apellido, fecha_nacimiento, genero, direccion }, { transaction: t });
+        await registration.update({ section_id: section.id }, { transaction: t });
+
+        await t.commit();
+        return res.status(200).json({ status: 'success', message: 'Actualización exitosa.' });
+
+    } catch (error) {
+        await t.rollback();
+        console.error(error);
+        return res.status(400).json({ status: 'error', message: error.message });
+    }
+};
+
 module.exports = 
 { 
     registerStudent, 
     saveBulkRegistrations, 
     updateRegistration,
-    getAllRegistrations 
+    getAllRegistrations,
+    updateFullRegistration 
 };

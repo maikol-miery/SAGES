@@ -127,7 +127,7 @@ const cargarEstudiantes = async () => {
           
           // 🎯 El cofre de datos que consumirá el Slideover directamente
           rawStudentData: {
-            id: inscripcion.Student?.id || inscripcion.id,
+            id: inscripcion.id,
             cedula: inscripcion.Student?.cedula || '',
             nombre: inscripcion.Student?.nombre || '',
             apellido: inscripcion.Student?.apellido || '',
@@ -136,9 +136,10 @@ const cargarEstudiantes = async () => {
             estado: (inscripcion.Student?.estado || 'ACTIVO').toUpperCase(),
             
             // 🛠️ Solución al snake_case: pasamos fecha_nacimiento al camelCase que espera el Slideover
+            
             fechaNacimiento: inscripcion.Student?.fecha_nacimiento || '',
             fechaInscripcionFormat: fechaFormat,
-            
+
             grado: inscripcion.Section?.grado || 'Por asignar',
             seccion: inscripcion.Section?.seccion || '',
             
@@ -225,6 +226,6 @@ onMounted(() => {
       </div>
     </div>
 
-    <StudentSlideover ref="studentSlideRef" />
+    <StudentSlideover ref="studentSlideRef" @refresh="cargarEstudiantes"/>
   </div>
 </template>

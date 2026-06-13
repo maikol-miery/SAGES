@@ -3,9 +3,27 @@ import { ref } from 'vue'
 
 const isOpen = ref(false)
 const mode = ref('view')
+const loading = ref(false) 
+const toast = useToast()
+const emit = defineEmits(['refresh'])
+
+const opcionesGrados = [
+  { value: '1', label: "1er Año" },
+  { value: '2', label: "2do Año" },
+  { value: '3', label: "3er Año" },
+  { value: '4', label: "4to Año" },
+  { value: '5', label: "5to Año" }
+]
+
+const opcionesSecciones = [
+  { value: 'A', label: 'A' },
+  { value: 'B', label: 'B' },
+  { value: 'C', label: 'C' }
+]
 
 // Estructura reactiva inicial con campos vacíos para evitar errores de renderizado
 const student = ref({
+  id: null,
   cedula: '',
   nombre: '',
   apellido: '',
@@ -45,13 +63,66 @@ const open = (actionMode, data) => {
   isOpen.value = true
 }
 
+const onSubmit = async (event) =>{
+
+  console.group('🚀 AUDITORÍA SAGES - INTENTO DE PATCH')
+  console.log('1. ID del estudiante (student.value.id):', student.value.id)
+  console.log('2. URL Objetivo:', `/register/${student.value.id}`)
+  console.log('3. Data limpia capturada del Formulario (event.data):', JSON.parse(JSON.stringify(event.data)))
+  console.groupEnd()
+
+  try {
+    
+    const idInscripcion = student.value.id
+
+    if (!idInscripcion) {
+      throw new Error('No se pudo ejecutar la acción porque el ID nulo o indefinido.')
+    }
+
+    const { representanteData, id, ...bodyData } = event.data
+    console.log(bodyData)
+    // Petición PATCH segura hacia el endpoint del backend
+    const respuesta = await useApi(`/registrations/${idInscripcion}`, {
+      method: 'PATCH',
+      body: bodyData
+    })
+
+    if (respuesta && respuesta.status === 'success') {
+      toast.add({
+        title: '¡Actualización Exitosa!',
+        description: `Los datos de ${student.value.nombre} han sido actualizados correctamente.`,
+        color: 'success', 
+        icon: 'i-lucide-check-circle',
+        timeout: 4000
+      })
+    }
+
+    emit('refresh')
+    isOpen.value = false
+
+  } catch (error) {
+    console.error('❌ Error crítico al actualizar el estudiantes:', error)
+    
+    toast.add({
+      title: 'Error al Guardar',
+      description: error.data?.message || 'No se pudieron actualizar los datos del estudiante. Revisa los campos.',
+      color: 'error', 
+      icon: 'i-lucide-alert-triangle',
+      timeout: 5000
+    })
+  } finally {
+    loading.value = false 
+  }
+
+}
+
 defineExpose({ open })
 </script>
 
 <template>
   <USlideover side="left" v-model:open="isOpen" title="Expediente del Estudiante">
     <template #body>
-      <div class="space-y-6 p-1 pb-10">
+      <UForm :state="student" class="space-y-6 p-1 pb-10" @submit="onSubmit">
         
         <div class="flex items-center gap-3 border-b pb-4">
           <div class="p-2 bg-olivine-100 rounded-lg">
@@ -70,12 +141,18 @@ defineExpose({ open })
             <UIcon name="i-lucide-graduation-cap" class="size-4 text-gray-400" />
             Estructura Académica
           </h4>
-          <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <div class="grid grid-cols-3 gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div>
-              <p class="text-[10px] font-bold text-gray-400 uppercase">Grado y Sección</p>
-              <p class="text-sm font-black text-gray-700 mt-0.5">
-                {{ student.grado }} Año '{{ student.seccion }}'
-              </p>
+              <p class="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Año</p>
+              <UFormField name="grado">
+                <USelect v-model="student.grado" :items="opcionesGrados" :disabled="mode === 'view'" block />
+              </UFormField>
+            </div>
+            <div>
+              <p class="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Sección</p>
+              <UFormField name="seccion">
+                <USelect v-model="student.seccion" :items="opcionesSecciones" :disabled="mode === 'view'" block />
+              </UFormField>
             </div>
             <div>
               <p class="text-[10px] font-bold text-gray-400 uppercase">Historial</p>
@@ -91,37 +168,33 @@ defineExpose({ open })
           </h4>
           
           <div class="space-y-4">
-            <div class="space-y-1">
-              <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">Cédula / Escolar</p>
+            <UFormField label="Cédula" name="cedula">
               <UInput v-model="student.cedula" :disabled="mode === 'view'" block />
-            </div>
+            </UFormField>
 
             <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1">
-                <p class="text-[10px] font-black text-gray-400 tracking-widest uppercase">Nombre</p>
+              <UFormField label="Nombre" name="nombre">
                 <UInput v-model="student.nombre" :disabled="mode === 'view'" block />
-              </div>
-              <div class="space-y-1">
-                <p class="text-[10px] font-black text-gray-400 tracking-widest uppercase">Apellido</p>
+              </UFormField>
+              
+              <UFormField label="Apellido" name="apellido">
                 <UInput v-model="student.apellido" :disabled="mode === 'view'" block />
-              </div>
+              </UFormField>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-1">
-                <p class="text-[10px] font-black text-gray-400 tracking-widest uppercase">Fecha de Nacimiento</p>
+              <UFormField label="Fecha de Nacimiento" name="fechaNacimiento">
                 <UInput v-model="student.fechaNacimiento" type="date" :disabled="mode === 'view'" block />
-              </div>
-              <div class="space-y-1">
-                <p class="text-[10px] font-black text-gray-400 tracking-widest uppercase">Género</p>
-                <USelect v-model="student.genero" :options="['M', 'F']" :disabled="mode === 'view'" block />
-              </div>
+              </UFormField>
+              
+              <UFormField label="Género" name="genero">
+                <USelect v-model="student.genero" :items="['M', 'F']" :disabled="mode === 'view'" block />
+              </UFormField>
             </div>
 
-            <div class="space-y-1">
-              <p class="text-[10px] font-black text-gray-400 tracking-widest uppercase">Dirección de Habitación</p>
+            <UFormField label="Dirección de Habitación" name="direccion">
               <UTextarea v-model="student.direccion" :disabled="mode === 'view'" :rows="2" block />
-            </div>
+            </UFormField>
           </div>
         </div>
 
@@ -160,9 +233,17 @@ defineExpose({ open })
         </div>
 
         <div v-if="mode === 'edit'" class="pt-4 border-t">
-          <UButton label="Actualizar Estudiante" color="primary" block class="font-bold" @click="isOpen = false" />
+          <UButton 
+            type="submit" 
+            label="Actualizar Estudiante" 
+            color="primary" 
+            block 
+            class="font-bold" 
+            :loading="loading" 
+          />
         </div>
-      </div>
+        
+      </UForm>
     </template>
   </USlideover>
 </template>
