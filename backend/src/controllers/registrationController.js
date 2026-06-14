@@ -1,4 +1,6 @@
 const { Registration, Student, Section, Representative, sequelize } = require('../models');
+const { updateStudentSchema } = require('../schemas/studentSchema'); 
+const { updateRegistrationSchema } = require('../schemas/registrationSchema');
 
 const { Op } = require('sequelize');
 
@@ -255,8 +257,7 @@ const updateRegistration = async (req, res) => {
     }
 };
 
-const { updateStudentSchema } = require('../schemas/studentSchema'); 
-const { updateRegistrationSchema } = require('../schemas/registrationSchema');
+
 
 const updateFullRegistration = async (req, res) => {
     const { id } = req.params;
@@ -292,11 +293,136 @@ const updateFullRegistration = async (req, res) => {
     }
 };
 
+const fullEnrollment = async (req, res) => {
+    // Iniciamos la transacción única para asegurar la integridad total
+    const t = await sequelize.transaction();
+
+    try {
+        // Extraemos los bloques tal cual los enviará tu formulario de Nuxt
+        const { estudiante, representante, section_id, tipo_inscripcion, observaciones } = req.body;
+
+        // ==========================================
+        // 1. COMPROBACIONES PREVIAS (CANDADOS DE INSCRIPCIÓN)
+        // ==========================================
+        
+        // Buscamos si la sección existe de verdad
+        const section = await Section.findByPk(section_id, { transaction: t });
+        if (!section) {
+            await t.rollback();
+            return res.status(404).json({ status: 'error', msg: "La sección seleccionada no existe." });
+        }
+
+        // Comprobación de cupos máximos de la regla de negocio
+        const count = await Registration.count({ where: { section_id }, transaction: t });
+        if (count >= section.capacidad) {
+            await t.rollback();
+            return res.status(400).json({ 
+                status: 'error',
+                msg: `Sección llena. Cupo máximo: ${section.capacidad}. No se puede registrar al estudiante.` 
+            });
+        }
+
+        // Si mandan cédula del chamo, verificamos que no exista ya registrado en el sistema
+        if (estudiante && estudiante.cedula) {
+            const existingStudent = await Student.findOne({ where: { cedula: estudiante.cedula }, transaction: t });
+            if (existingStudent) {
+                await t.rollback();
+                return res.status(400).json({ status: 'error', msg: "Ya existe un estudiante registrado con esa cédula." });
+            }
+        }
+
+
+        // ==========================================
+        // 2. PROCESAR REPRESENTANTE (LÓGICA DEL STUDENT CONTROLLER)
+        // ==========================================
+        let finalRepresentativeId = null;
+
+        // CASO A: Si viene el objeto "representante" con datos, lo buscamos o creamos
+        if (representante && representante.cedula) {
+            const [representative] = await Representative.findOrCreate({
+                where: { cedula: representante.cedula },
+                defaults: { 
+                    nombre: representante.nombre, 
+                    apellido: representante.apellido, 
+                    telefono: representante.telefono,
+                    email: representante.email,
+                    parentesco: representante.parentesco 
+                },
+                transaction: t 
+            });
+            finalRepresentativeId = representative.id;
+        } 
+        // CASO B: Si no viene el representante, pero el chamo ya tiene un ID de uno existente
+        else if (estudiante && estudiante.representative_id) {
+            finalRepresentativeId = estudiante.representative_id;
+        }
+
+        // CANDADO DEFINITIVO DEL REPRESENTANTE
+        if (!finalRepresentativeId) {
+            await t.rollback();
+            return res.status(400).json({
+                status: "error",
+                msg: "Debe enviar los datos completos de un representante o el ID de uno existente."
+            });
+        }
+
+
+        // ==========================================
+        // 3. CREAR ESTUDIANTE
+        // ==========================================
+        const newStudent = await Student.create({
+            ...estudiante, 
+            representative_id: finalRepresentativeId // 🎯 Diana: nunca será undefined
+        }, { transaction: t });
+
+
+        // ==========================================
+        // 4. CREAR INSCRIPCIÓN FINAL (AMARRAR TODO)
+        // ==========================================
+        
+        // Por diseño de flujo, sabemos que no tiene inscripción previa porque se acaba de crear el student_id,
+        // así que ejecutamos la inserción directa de tu modelo
+        const enrollment = await Registration.create({
+            student_id: newStudent.id, 
+            section_id, 
+            tipo_inscripcion: tipo_inscripcion || 'regular',
+            observaciones: observaciones || null,
+            estado: "confirmada" // Sincronizado con el por defecto de tu schema Zod
+        }, { transaction: t });
+
+
+        // ==========================================
+        // 5. CERRAR OPERACIÓN
+        // ==========================================
+        await t.commit();
+
+        return res.status(201).json({
+            status: 'success',
+            msg: "Estudiante registrado e inscrito con éxito en SAGES",
+            data: {
+                student: newStudent,
+                enrollment: enrollment
+            }
+        });
+
+    } catch (error) {
+        // Cualquier fallo en el camino (Campos faltantes de BD, caída de red, etc) destruye los inserts intermedios
+        await t.rollback();
+        console.error("Error en registro completo:", error);
+        return res.status(500).json({ 
+            status: 'error',
+            msg: "Error interno al procesar el registro completo del estudiante",
+            error: error.message 
+        });
+    }
+};
+
 module.exports = 
 { 
     registerStudent, 
     saveBulkRegistrations, 
     updateRegistration,
     getAllRegistrations,
-    updateFullRegistration 
+    updateFullRegistration,
+    fullEnrollment 
 };

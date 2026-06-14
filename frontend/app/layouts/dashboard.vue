@@ -10,4 +10,8 @@
   </div>
 </template>
 <script setup>
+  const handleSuccess = () => {
+  // Recarga los datos de las peticiones useFetch activas en la pantalla actual
+    refreshNuxtData() 
+  }
 </script>

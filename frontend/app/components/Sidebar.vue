@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { LazyModalRegisterStudent } from '#components'
 
 // 1. Obtenemos el rol del usuario de las cookies
 const userRole = useCookie('user_role')
@@ -60,6 +61,14 @@ async function handleLogout() {
   
   await navigateTo('/')
 }
+
+const overlay = useOverlay()
+
+const registroModal = overlay.create(LazyModalRegisterStudent)
+
+const openRegistro = () => {
+  registroModal.open()
+}
 </script>
 
 <template>
@@ -105,6 +114,7 @@ async function handleLogout() {
           block
           color="green"
           variant="solid"
+          @click="openRegistro"
           class="bg-olivine-500 hover:bg-olivine-700 hover:cursor-pointer text-white font-medium shadow-sm"
         />
       </div>
