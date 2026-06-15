@@ -153,12 +153,12 @@ watch(
             // Rellenamos solo si el input sigue teniendo exactamente la misma cédula que buscamos
             // (Evita desfases si el usuario escribe extremadamente rápido)
             if (state.representante.cedula.trim() === rep.cedula) {
-              state.representante.cedula = rep.cedula
+              state.representante.cedula = rep.cedula 
               state.representante.nombre     = rep.nombre || ''
               state.representante.apellido   = rep.apellido || ''
               state.representante.telefono   = rep.telefono || ''
               state.representante.email      = rep.email || ''
-              state.representante.parentesco = rep.parentesco || ''
+              // state.representante.parentesco = rep.parentesco || ''
               
               toast.add({
                 title: 'Representante encontrado',
@@ -210,7 +210,7 @@ watch(
             :items="steps"
         />
 
-        <UForm ref="form" :state="state" class="space-y-6" @submit="onSubmit">
+        <UForm ref="form" :state="state" :schema="schemaActual" class="space-y-6" @submit="onSubmit">
 
             <!-- Paso 1: Estudiante -->
             <div v-if="currentStep === 0" class="space-y-4 animate-fade-in">
@@ -336,7 +336,7 @@ watch(
                 v-else
                 type="submit"
                 label="Finalizar Inscripción"
-                color="success"
+                color="primary"
                 icon="i-lucide-check-circle"
                 :loading="loading"
                 />
