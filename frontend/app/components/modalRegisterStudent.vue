@@ -295,9 +295,10 @@ watch(
                 <USelect
                     v-model="state.tipo_inscripcion"
                     :items="[
-                    { label: 'Regular',   value: 'regular'   },
-                    { label: 'Repitente', value: 'repitente' },
-                    { label: 'Traslado',  value: 'traslado'  }
+                    { label: 'Regular',   value: 'RG'   },
+                    { label: 'Repitente', value: 'RP' },
+                    { label: 'Materia Pendiente', value: 'MP' },
+                    { label: 'Equivalencia',  value: 'EQ'  }
                     ]"
                     value-key="value"
                     class="w-full"

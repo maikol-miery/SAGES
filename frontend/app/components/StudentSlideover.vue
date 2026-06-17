@@ -15,6 +15,13 @@ const opcionesGrados = [
   { value: '5', label: "5to Año" }
 ]
 
+const opcionesEscolaridad =[
+  {value: 'RG', label: 'REGULAR'},
+  {value: 'MP', label: 'MATERIA PENDIENTE'},
+  {value: 'EQ', label: 'EQUIVALENCIA'},
+  {value: 'RP', label: 'REPITIENTE'}
+]
+
 const opcionesSecciones = [
   { value: 'A', label: 'A' },
   { value: 'B', label: 'B' },
@@ -33,6 +40,7 @@ const student = ref({
   grado: '',
   seccion: '',
   fechaInscripcionFormat: '',
+  tipo_inscripcion: '',
   representanteData: {
     nombre: '',
     apellido: '',
@@ -157,6 +165,12 @@ defineExpose({ open })
             <div>
               <p class="text-[10px] font-bold text-gray-400 uppercase">Historial</p>
               <p class="text-xs font-bold text-gray-600 mt-0.5">{{ student.fechaInscripcionFormat }}</p>
+            </div>
+            <div class="col-span-2">
+              <p class="text-[10px] font-bold text-gray-400 uppercase mb-0.5">Escolaridad</p>
+              <UFormField name="tipo_incripcion" class="w-full col-span-2">
+                <USelect v-model="student.tipo_inscripcion" :items="opcionesEscolaridad" :disabled="mode === 'view'" block class="w-full col-span-2"/>
+              </UFormField>
             </div>
           </div>
         </div>

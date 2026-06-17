@@ -81,25 +81,66 @@ const assignTeacher = async (req, res) => {
 
 const getAcademicLoads = async (req, res) => {
     try {
+        const { grado } = req.query; // Recibe "1", "2", "3", etc.
+
+        if (!grado) {
+            return res.status(400).json({ msg: "El parámetro grado es requerido." });
+        }
+
+        // 1. Buscamos primero todas las secciones registradas para ese grado específico
+        const sections = await Section.findAll({
+            where: { grado: String(grado) },
+            order: [['seccion', 'ASC']]
+        });
+
+        // 2. Buscamos las cargas académicas activas de ese grado para armar los joins
         const loads = await AcademicLoad.findAll({
+            where: { estado: 'activo' },
             include: [
-                // 👥 Cambiado Teacher por Staff para hacer el INNER JOIN correcto
-                { model: Staff, attributes: ['nombre', 'apellido'] },
-                { model: Subject, attributes: ['nombre'] },
-                { model: Section, attributes: ['grado', 'seccion'] } 
+                { 
+                    model: Staff, 
+                    as: 'docente', 
+                    attributes: ['nombre', 'apellido'] 
+                },
+                { 
+                    model: Subject, 
+                    as: 'subject',
+                    attributes: ['nombre', 'grado']
+                },
+                { 
+                    model: Section, 
+                    as: 'Section',
+                    where: { grado: String(grado) } // Filtramos solo las de este año
+                }
             ]
         });
 
-        if (loads.length === 0) {
-            return res.status(200).json({ 
-                msg: "No se encontraron cargas académicas registradas.", 
-                data: [] 
-            });
-        }
+        // 3. 🧠 Mapeamos e interconectamos la información para el Front
+        const resultadoFinal = sections.map(sec => {
+            // Filtramos las materias asignadas específicamente a esta sección ID
+            const materiasAsignadas = loads
+                .filter(load => load.section_id === sec.id)
+                .map(load => ({
+                    id: load.id, // ID de la carga para eliminar
+                    nombre: load.subject?.nombre || 'Materia sin nombre',
+                    docente: load.docente ? `Prof. ${load.docente.nombre} ${load.docente.apellido}` : 'Sin docente asignado'
+                }));
 
-        return res.json({ data: loads });
+            return {
+                id: sec.id,
+                letra: sec.seccion,       // Pasa la columna 'seccion' (A, B, C...) a la prop 'letra'
+                capacidad: sec.capacidad, // Usamos tu columna capacidad por si la quieres mostrar
+                materias: materiasAsignadas
+            };
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            sections: resultadoFinal
+        });
+
     } catch (error) {
-        console.error("Error en getAcademicLoads:", error); 
+        console.error("Error en getAcademicLoads con PostgreSQL real:", error); 
         return res.status(500).json({ 
             msg: "Error interno al obtener la carga académica",
             error: error.message 

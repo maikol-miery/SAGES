@@ -264,8 +264,18 @@ const updateFullRegistration = async (req, res) => {
     const t = await sequelize.transaction();
 
     try {
-        // Accede a los datos directamente, SIN esquemas de Zod
-        const { grado, seccion, cedula, nombre, apellido, fecha_nacimiento, genero, direccion } = req.body;
+        // 🛠️ RECIBIMOS: tipo_inscripcion desde el cuerpo de la petición
+        const { 
+            grado, 
+            seccion, 
+            tipo_inscripcion, 
+            cedula, 
+            nombre, 
+            apellido, 
+            fecha_nacimiento, 
+            genero, 
+            direccion 
+        } = req.body;
 
         // 1. Buscamos la inscripción
         const registration = await Registration.findByPk(id, { transaction: t });
@@ -275,13 +285,24 @@ const updateFullRegistration = async (req, res) => {
         const student = await Student.findByPk(registration.student_id, { transaction: t });
         if (!student) throw new Error("Estudiante no encontrado.");
 
-        // 3. Buscamos la sección
+        // 3. Buscamos la sección destino
         const section = await Section.findOne({ where: { grado, seccion }, transaction: t });
         if (!section) throw new Error("Sección no encontrada.");
 
-        // 4. Actualizamos
-        await student.update({ cedula, nombre, apellido, fecha_nacimiento, genero, direccion }, { transaction: t });
-        await registration.update({ section_id: section.id }, { transaction: t });
+        // 4. Actualizamos el estudiante con sus datos personales
+        await student.update(
+            { cedula, nombre, apellido, fecha_nacimiento, genero, direccion }, 
+            { transaction: t }
+        );
+        
+        // 🛠️ ACTUALIZAMOS la inscripción: Ahora guarda la nueva sección Y la nueva escolaridad
+        await registration.update(
+            { 
+                section_id: section.id, 
+                tipo_inscripcion: tipo_inscripcion // 👈 Mapeo directo a la tabla de inscripciones
+            }, 
+            { transaction: t }
+        );
 
         await t.commit();
         return res.status(200).json({ status: 'success', message: 'Actualización exitosa.' });

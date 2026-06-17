@@ -46,8 +46,6 @@ const pestañaActiva = ref('0')
     </template>
   </UTabs>
 
-    
-
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4 shadow-sm">
         <div class="p-3 bg-green-100 rounded-lg">

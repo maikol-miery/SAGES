@@ -42,6 +42,43 @@ const columns = [
       return h(UBadge, { variant: 'subtle', color, class: 'font-bold' }, () => row.original.estado)
     }
   },
+    {
+  accessorKey: 'tipo_inscripcion', 
+  header: 'ESCOLARIDAD',
+  cell: ({ row }) => {
+    const valor = row.original.tipo_inscripcion.toUpperCase()
+
+    // Diccionario con las abreviaturas conocidas, sus textos largos y colores
+    const escolaridadMap = {
+      RG: { label: 'Regular',           color: 'success' },
+      RP: { label: 'Repitente',         color: 'error'   },
+      MP: { label: 'Materia Pendiente', color: 'neutral' },
+      EQ: { label: 'Equivalencia',      color: 'info'    }
+    }
+
+    const config = escolaridadMap[valor]
+
+    // 1. Si NO es ninguna de las abreviaturas conocidas, renderizamos el Badge simple y plano
+    if (!config) {
+      return h(
+        UBadge, 
+        { variant: 'subtle', color: 'neutral', class: 'font-bold' }, 
+        () => valor || 'N/D'
+      )
+    }
+
+    // 2. Si SÍ es una abreviatura conocida, le ponemos su color correspondiente y el Tooltip largo
+    return h(
+      UTooltip,
+      { text: config.label, arrow: true },
+      () => h(
+        UBadge, 
+        { variant: 'subtle', color: config.color, class: 'font-bold cursor-help' }, 
+        () => valor
+      )
+    )
+  }
+},
   {
     id: 'acciones',
     header: 'ACCIONES',
@@ -105,53 +142,57 @@ const cargarEstudiantes = async () => {
       totalAlumnos.value = respuesta.totalItems || 0
       
       alumnos.value = (respuesta.data || []).map(inscripcion => {
-        const student = inscripcion.Student || {}
-        const section = inscripcion.Section || {}
-        const representative = student.Representative || {}
-        
-        const fechaBase = inscripcion.createdAt || student.createdAt
-        const fechaFormat = fechaBase 
-          ? new Date(fechaBase).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })
-          : 'Jun 2026'
-
-        return {
-          id: inscripcion.id,
-          cedula: inscripcion.Student?.cedula || 'S/C',
-          nombreCompleto: `${inscripcion.Student?.apellido || ''} ${inscripcion.Student?.nombre || ''}`.toUpperCase(),
-          seccion_format: inscripcion.Section?.grado ? `${inscripcion.Section.grado} '${inscripcion.Section.seccion}'` : 'Por asignar',
-          representante: inscripcion.Student?.Representative?.nombre 
-            ? `${inscripcion.Student.Representative.apellido || ''} ${inscripcion.Student.Representative.nombre}`.toUpperCase() 
-            : 'NO ASIGNADO',
-          estado: (inscripcion.Student?.estado || 'ACTIVO').toUpperCase(),
-          fechaInscrito: `Inscrito en ${fechaFormat}`,
+          const student = inscripcion.Student || {}
+          const section = inscripcion.Section || {}
+          const representative = student.Representative || {}
           
-          // 🎯 El cofre de datos que consumirá el Slideover directamente
-          rawStudentData: {
-            id: inscripcion.id,
-            cedula: inscripcion.Student?.cedula || '',
-            nombre: inscripcion.Student?.nombre || '',
-            apellido: inscripcion.Student?.apellido || '',
-            genero: inscripcion.Student?.genero || 'No definido',
-            direccion: inscripcion.Student?.direccion || 'No registrada',
-            estado: (inscripcion.Student?.estado || 'ACTIVO').toUpperCase(),
-            
-            // 🛠️ Solución al snake_case: pasamos fecha_nacimiento al camelCase que espera el Slideover
-            
-            fechaNacimiento: inscripcion.Student?.fecha_nacimiento || '',
-            fechaInscripcionFormat: fechaFormat,
+          const fechaBase = inscripcion.createdAt || student.createdAt
+          const tipoInscripcion = inscripcion.tipo_inscripcion 
+          const fechaFormat = fechaBase 
+            ? new Date(fechaBase).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })
+            : 'Jun 2026'
 
-            grado: inscripcion.Section?.grado || 'Por asignar',
-            seccion: inscripcion.Section?.seccion || '',
+          return {
+            id: inscripcion.id,
+            cedula: student.cedula || 'S/C',
+            nombreCompleto: `${student.apellido || ''} ${student.nombre || ''}`.toUpperCase(),
+            seccion_format: section.grado ? `${section.grado} '${section.seccion}'` : 'Por asignar',
+            representante: representative.nombre 
+              ? `${representative.apellido || ''} ${representative.nombre}`.toUpperCase() 
+              : 'NO ASIGNADO',
+            estado: (student.estado || 'ACTIVO').toUpperCase(),
+            fechaInscrito: `Inscrito en ${fechaFormat}`,
             
-            // 🗂️ Mapeamos la ficha del representante usando los nombres de la consola
-            representanteData: {
-              nombre: inscripcion.Student?.Representative?.nombre || '',
-              apellido: inscripcion.Student?.Representative?.apellido || '',
-              cedula: inscripcion.Student?.Representative?.cedula || 'No registrada',
-              telefono: inscripcion.Student?.Representative?.telefono || 'No registrado'
+            // 🎯 SOLUCIÓN AL BUG: Ahora la raíz del objeto sí tiene la propiedad que busca el accessorKey de la tabla
+            tipo_inscripcion: tipoInscripcion, 
+
+            // 🗂️ El cofre de datos que consumirá el Slideover directamente
+            rawStudentData: {
+              id: inscripcion.id,
+              cedula: student.cedula || '',
+              nombre: student.nombre || '',
+              apellido: student.apellido || '',
+              genero: student.genero || 'No definido',
+              direccion: student.direccion || 'No registrada',
+              estado: (student.estado || 'ACTIVO').toUpperCase(),
+              
+              // 🛠️ Guardamos también la escolaridad aquí dentro por si el Slideover la necesita mostrar
+              tipo_inscripcion: tipoInscripcion, 
+              
+              fechaNacimiento: student.fecha_nacimiento || '',
+              fechaInscripcionFormat: fechaFormat,
+
+              grado: section.grado || 'Por asignar',
+              seccion: section.seccion || '',
+              
+              representanteData: {
+                nombre: representative.nombre || '',
+                apellido: representative.apellido || '',
+                cedula: representative.cedula || 'No registrada',
+                telefono: representative.telefono || 'No registrado'
+              }
             }
           }
-        }
       })
     } else {
       alumnos.value = []

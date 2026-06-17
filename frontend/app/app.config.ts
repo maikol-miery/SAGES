@@ -3,7 +3,8 @@ export default defineAppConfig({
     colors: {
       primary: 'olivine',
       secondary:"olivine-900",
-      neutral: 'slate'
+      neutral: 'slate',
+      error: 'shocking'
     },
     button:{
         
