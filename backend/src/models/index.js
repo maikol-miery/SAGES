@@ -38,11 +38,9 @@ Section.hasMany(Registration, { foreignKey: 'section_id' });
 
 // 3. Carga Académica: Relación Staff (Docente) - Materia - Sección (M:N)
 // Mapeo explícito con 'staff_id' para evitar duplicación de columnas en AcademicLoad
-Staff.belongsToMany(Subject, { through: AcademicLoad, foreignKey: 'staff_id', otherKey: 'subject_id' });
-Subject.belongsToMany(Staff, { through: AcademicLoad, foreignKey: 'subject_id', otherKey: 'staff_id' });
 
-Staff.belongsToMany(Section, { through: AcademicLoad, foreignKey: 'staff_id', otherKey: 'section_id' });
-Section.belongsToMany(Staff, { through: AcademicLoad, foreignKey: 'section_id', otherKey: 'staff_id' });
+// 🚀 [CAMBIO DE SAGES]: Se removieron los belongsToMany que forzaban índices UNIQUE individuales en Postgres.
+// Se mantienen las relaciones directas (1:N) para manejar el puente de 3 vías de forma limpia.
 
 // Relaciones directas de Carga Académica
 AcademicLoad.belongsTo(Staff, { foreignKey: 'staff_id', as: 'docente' });
