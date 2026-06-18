@@ -69,14 +69,23 @@ const createStaff = async (req, res) => {
 // 2. OBTENER TODO EL PERSONAL (Para la tabla de "Gestión de Personal")
 const getAllStaff = async (req, res) => {
     try {
-        // Buscamos todo el personal activo e incluimos su cuenta de usuario vinculada
-        // para poder pintar en la tabla si es 'admin', 'secretaria' o simplemente 'docente'
+        const { tipo_personal } = req.query;
+
+        // 1. Condición base: siempre traer al personal activo
+        const whereCondition = { estado: "activo" };
+
+        // 2. Si pasan el filtro por la URL, lo limpiamos y lo agregamos directo al modelo principal
+        if (tipo_personal) {
+            const tipoLimpio = tipo_personal.replace(/['"]+/g, '').trim().toLowerCase();
+            whereCondition.tipo_personal = tipoLimpio; 
+        }
+
         const staffList = await Staff.findAll({
-            where: { estado: "activo" }, 
+            where: whereCondition, // 🚀 Filtra directo aquí (docente / administrativo)
             include: [{
                 model: User,
                 as: 'cuenta',
-                attributes: ['username', 'rol'] // Excluimos contraseñas y preguntas por seguridad
+                attributes: ['username', 'rol'] // Solo para pintar info en la tabla general
             }],
             order: [['apellido', 'ASC']] 
         });

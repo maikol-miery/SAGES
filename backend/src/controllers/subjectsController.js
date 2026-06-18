@@ -14,14 +14,14 @@ const createSubject = async (req, res) =>{
             where: {
                 [Op.or]: [
                     { nombre, grado }, 
-                    { abreviatura }    
+                    { abreviatura, grado}    
                 ]
             }
         });
 
         if (existing) {
             return res.status(400).json({
-                msg: "Ya existe una materia con ese nombre en este grado o esa abreviatura ya está en uso"
+                msg: "nombre o abreviatura ya está en uso para este grado"
             });
         }
 
@@ -32,6 +32,7 @@ const createSubject = async (req, res) =>{
         });
 
         return res.status(201).json({
+            status: 'success',
             msg:`${nombre} creada de forma exitosa`,
             newSubject
         })

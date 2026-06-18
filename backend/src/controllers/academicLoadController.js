@@ -67,6 +67,7 @@ const assignTeacher = async (req, res) => {
         });
 
         return res.status(201).json({
+            status: "success",
             msg: "Carga académica asignada exitosamente",
             data: newLoad
         });

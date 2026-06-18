@@ -4,19 +4,40 @@ definePageMeta({
   layout: 'dashboard'
 })
 
+import { materiaSchema } from '~/schemas/materiaSchema.js'
+const toast = useToast()
+
 // 1. ESTADO REACTIVO
 const activeYear = ref('1') 
 const loading = ref(false)
 const childRef = ref(null)
+const popoverAbierto = ref(false)
+
+watch(popoverAbierto, (abierto) => {
+  if (!abierto) {
+    stateMateria.nombre = ''
+    stateMateria.abreviatura = ''
+    stateMateria.grado = ''
+  }
+})
 
 const docentes = ref([])
 const materias = ref([])
 const secciones = ref([])
 
+const todasLasMaterias = ref([])
+const todasLasSecciones = ref([])
+
+const stateMateria = reactive({
+  nombre: '',    
+  abreviatura: '',
+  grado: ''
+})
+
 const state = reactive({
   staff_id: undefined,    
   subject_id: undefined,
-  section_id: undefined,
+  section_id: undefined, 
   anio_escolar: '2025-2026'
 })
 
@@ -28,62 +49,172 @@ const years = [
   { slot: '5', label: '5to Año', value: '5' },
 ]
 
-// 📡 CORREGIDO: Ajustado exactamente a las columnas de tu pgAdmin y Thunder Client
 const cargarSelectores = async () => {
   try {
     const [resDocentes, resMaterias, resSecciones] = await Promise.all([
-      useApi('/staff', { method: 'GET' }),
+      useApi('/staff', { method: 'GET', query: {tipo_personal:"docente"}}),
       useApi('/subjects', { method: 'GET' }),
       useApi('/sections', { method: 'GET' })
     ])
     
-    // 1. Docentes: Tu backend devuelve array directo o en .data o .staff (ajusta según corresponda, aquí usamos fallback seguro)
-    const listaDocentes = resDocentes.staff || resDocentes.data || resDocentes || []
+    const listaDocentes = resDocentes.data || []
     docentes.value = listaDocentes.map(d => ({ 
       label: `Prof. ${d.nombre} ${d.apellido}`, 
       value: d.id 
     }))
     
-    // 2. Materias: En pgAdmin veo las columnas 'nombre' y 'grado'
-    const listaMaterias = resMaterias.subjects || resMaterias.data || resMaterias || []
-    materias.value = listaMaterias.map(m => ({ 
-      label: `${m.nombre} (${m.grado}° Año)`, 
-      value: m.id 
-    }))
+    // ✅ Guardamos en el .value del ref
+    todasLasMaterias.value = resMaterias.subjects || []
+    todasLasSecciones.value = resSecciones.sections || []
     
-    // 3. Secciones: En pgAdmin veo que usas las columnas 'seccion' (letra A, B) y 'grado' (año 1, 2)
-    const listaSecciones = resSecciones.sections || resSecciones.data || resSecciones || []
-    secciones.value = listaSecciones.map(s => ({ 
-      label: `Sección ${s.seccion} - ${s.grado}° Año`, 
+    secciones.value = todasLasSecciones.value.map(s => ({ 
+      label: `${s.grado}° Año - Sección ${s.seccion}`, 
       value: s.id 
     }))
   } catch (error) {
-    console.error('Error cargando listas del formulario:', error)
+    console.error('Error cargando selectores del formulario:', error)
   }
 }
 
+// 👁️ OBSERVADOR: Filtra usando los .value de las refs
+watch(() => state.section_id, (nuevoSectionId) => {
+  if (!nuevoSectionId) {
+    materias.value = []
+    state.subject_id = undefined
+    stateMateria.grado = undefined
+    return
+  }
+
+  // ✅ Buscamos usando .value.find
+  const seccionSeleccionada = todasLasSecciones.value.find(s => s.id === nuevoSectionId)
+
+  if (seccionSeleccionada) {
+    state.subject_id = undefined
+
+    // asignamos este grado para el menu de agregar materia
+    stateMateria.grado = String(seccionSeleccionada.grado)
+
+    // ✅ Filtramos usando .value.filter
+    const materiasFiltradas = todasLasMaterias.value.filter(m => m.grado === seccionSeleccionada.grado)
+
+    materias.value = materiasFiltradas.map(m => ({
+      label: `${m.nombre} (${m.grado}° Año)`, 
+      value: m.id 
+    }))
+  }
+})
+
 const asignarCarga = async () => {
+  console.log("DATOS ENVIADOS DESDE EL FRONTEND:", { ...state })
   if (!state.staff_id || !state.subject_id || !state.section_id) return
   
   loading.value = true
+
+  console.log(state)
   try {
-    await useApi('/academic-load', {
+    const response = await useApi('/academic-load', {
       method: 'POST',
       body: state
     })
-    
-    state.staff_id = undefined
-    state.subject_id = undefined
-    state.section_id = undefined
 
-    // Forzar al hijo a recargar tras guardar
-    if (childRef.value) {
-      await childRef.value.cargarSecciones()
+    if(response && response.status === "success"){
+
+      // 1. 🚀 NOTIFICACIÓN DE ÉXITO
+      toast.add({
+        title: '¡Carga Asignada!',
+        description: response?.message || 'El docente ha sido vinculado a la materia y sección correctamente.',
+        color: 'success',
+        icon: 'i-lucide-check-circle',
+        timeout: 4000
+      })
+      
+      state.staff_id = undefined
+      state.subject_id = undefined
+      state.section_id = undefined
+      state.anio_escolar = '2025-2026'
+
+      if (childRef.value) {
+        await childRef.value.cargarSecciones()
+      }
+  
     }
+    
   } catch (error) {
     console.error('Error al guardar la carga académica:', error)
+  
+    toast.add({
+      title: 'Error de Asignación',
+      description: error.data?.message || 'No se pudo vincular la carga. Verifica si el docente ya tiene esa materia en la misma sección.',
+      color: 'error',
+      icon: 'i-lucide-alert-triangle',
+      timeout: 5000
+    })
   } finally {
     loading.value = false
+  }
+}
+
+const nuevaMateria = async () => {
+  if(!stateMateria.nombre || !stateMateria.grado || !stateMateria.abreviatura) return
+
+  loading.value = true
+
+  try {
+    
+    const response = await useApi('/subjects', {
+      method: 'POST',
+      body: stateMateria
+    })
+
+    if (response && response.status === 'success') {
+      toast.add({
+        title: '¡Materia Añadida!',
+        description: `${response.newSubject.nombre} han sido añadida correctamente`,
+        color: 'success', 
+        icon: 'i-lucide-check-circle',
+        timeout: 4000
+      })
+
+      popoverAbierto.value = false
+
+    // 2. 🧹 LIMPIAR EL FORMULARIO (Reseteamos el estado)
+    stateMateria.nombre = ''
+    stateMateria.abreviatura = ''
+    // Nota: El grado lo puedes dejar o limpiar según prefieras
+
+    // 3. 🔄 REFRESCAR EL SELECTOR DE MATERIAS
+    // Extraemos la nueva materia que te devolvió el backend (revisa si viene como res.newSubject o similar)
+    const nuevaMateriaBackend = response.newSubject 
+
+    if (nuevaMateriaBackend) {
+      // La insertamos en nuestra caché reactiva local
+      todasLasMaterias.value.push(nuevaMateriaBackend)
+
+      // Si la materia que acabas de crear coincide con el grado de la sección seleccionada actualmente,
+      // la metemos directamente en el USelectMenu visual para que aparezca al instante
+      const seccionSeleccionada = todasLasSecciones.value.find(s => s.id === state.section_id)
+      
+      if (seccionSeleccionada && String(nuevaMateriaBackend.grado) === String(seccionSeleccionada.grado)) {
+        materias.value.push({
+          label: `${nuevaMateriaBackend.nombre} (${nuevaMateriaBackend.grado}° Año)`,
+          value: nuevaMateriaBackend.id
+        })
+      }
+    }
+  }
+
+  } catch (error) {
+    console.error('❌ Error al agregar materia', error)
+    
+    toast.add({
+      title: 'Error al agregar la materia',
+      description: error.data?.message || 'No se pudo agregar la materia. Revisa los campos.',
+      color: 'error', 
+      icon: 'i-lucide-alert-triangle',
+      timeout: 5000
+    })
+  } finally {
+    loading.value = false 
   }
 }
 
@@ -122,31 +253,106 @@ onMounted(() => {
               <USelectMenu
                 v-model="state.staff_id"
                 :items="docentes"
+                value-key="value"
                 size="lg"
                 placeholder="Buscar docente..."
                 class="w-full p-2.5 text-md transition-all duration-300 focus:bg-olivine-50 focus:ring-2 focus:ring-olivine-500"
               />
             </UFormField>
 
-            <UFormField label="Seleccionar Materia" name="subject_id" class="w-full">
-              <USelectMenu
-                v-model="state.subject_id"
-                :items="materias"
-                size="lg"
-                placeholder="Seleccionar materia..."
-                class="w-full p-2.5 text-md transition-all duration-300 focus:bg-olivine-50 focus:ring-2 focus:ring-olivine-500"
-              />
-            </UFormField>
-
-            <UFormField label="Seleccionar grado y sección" name="section_id" class="w-full">
+            <UFormField label="Seleccionar grado y sección" name="section_id" class="">
               <USelectMenu
                 v-model="state.section_id"
                 :items="secciones"
+                value-key="value"
                 size="lg"
                 placeholder="Seleccionar sección..."
                 class="w-full p-2.5 text-md transition-all duration-300 focus:bg-olivine-50 focus:ring-2 focus:ring-olivine-500"
               />
             </UFormField>
+
+              <UFormField label="Seleccionar Materia" name="subject_id" class="w-full">
+                <div class="w-full flex gap-2">
+                  <USelectMenu
+                    v-model="state.subject_id"
+                    :items="materias"
+                    value-key="value"
+                    size="lg"
+                    placeholder="Seleccionar materia..."
+                    :disabled="!state.section_id"
+                    class="w-full p-2.5 text-md transition-all duration-300 focus:bg-olivine-50 focus:ring-2 focus:ring-olivine-500"
+                  />
+                  <UPopover
+                    v-model:open="popoverAbierto"
+                    :content="{
+                      align: 'center',
+                      side: 'bottom',
+                      sideOffset: 8
+                    }"
+                  >
+                    <UButton icon="i-lucide-plus" />
+
+                    <template #content>
+                      <UCard :ui="{body: 'p-3'}">
+                        <template #header>
+                          <p class="text-sm font-semibold text-primary-700">
+                            Agregar Nueva Materia
+                          </p>
+                        </template>
+
+                        <UForm :state="stateMateria" class="space-y-5 w-full max-w-sm mx-auto" @submit="nuevaMateria" :schema="materiaSchema">
+  
+                          <UFormField label="Nombre de la Materia" name="nombre" class="w-full">
+                            <UInput
+                              v-model="stateMateria.nombre"
+                              size="lg"
+                              icon="i-lucide-book-open"
+                              placeholder="Ej: Matemáticas, Química..."
+                              class="w-full transition-all duration-300 focus:ring-2 focus:ring-primary-500"
+                            />
+                          </UFormField>
+
+                          <UFormField label="Abreviatura" name="abreviatura" class="w-full">
+                            <UInput
+                              v-model="stateMateria.abreviatura"
+                              size="lg"
+                              icon="i-lucide-hash"
+                              placeholder="Ej: MAT, QUI, EF"
+                              class="w-full transition-all duration-300 focus:ring-2 focus:ring-primary-500"
+                            />
+                          </UFormField>
+
+                          <UFormField label="Año / Grado Escolar" name="grado" class="w-full">
+                            <USelectMenu
+                              v-model="stateMateria.grado"
+                              :items="years"
+                              value-attribute="value"
+                              value-key="value"
+                              size="lg"
+                              :search-input="false"
+                              icon="i-lucide-graduation-cap"
+                              placeholder="Seleccionar año..."
+                              class="w-full transition-all duration-300 focus:ring-2 focus:ring-primary-500"
+                            />
+                          </UFormField>
+
+                          <UButton 
+                            :loading="loading" 
+                            type="submit" 
+                            block 
+                            color="primary" 
+                            icon="i-lucide-plus-circle" 
+                            class="mt-6 text-md font-semibold"
+                          >
+                            Registrar Materia
+                          </UButton>
+
+                        </UForm>
+                      </UCard>
+                    </template>
+                  </UPopover>
+                </div>
+              </UFormField>            
 
             <UButton :loading="loading" type="submit" block color="primary" icon="i-lucide-plus-circle" class="mt-6 text-md">
               Asignar Clase

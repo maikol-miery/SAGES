@@ -2,7 +2,7 @@ const { z } = require('zod');
 
 // 1. Definimos los campos base de la Carga Académica con sus mensajes y refinamientos
 const academicLoadFields = z.object({
-    teacher_id: z.string({ required_error: "El ID del profesor es requerido." })
+    staff_id: z.string({ required_error: "El ID del profesor es requerido." })
         .uuid("El ID del profesor debe ser un UUID válido."),
         
     subject_id: z.string({ required_error: "El ID de la materia es requerido." })
