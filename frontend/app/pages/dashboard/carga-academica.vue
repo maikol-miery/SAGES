@@ -18,6 +18,7 @@ watch(popoverAbierto, (abierto) => {
     stateMateria.nombre = ''
     stateMateria.abreviatura = ''
     stateMateria.grado = ''
+    stateMateria.tipo_evaluacion = 'cuantitativa' 
   }
 })
 
@@ -31,8 +32,14 @@ const todasLasSecciones = ref([])
 const stateMateria = reactive({
   nombre: '',    
   abreviatura: '',
-  grado: ''
+  grado: '',
+  tipo_evaluacion: 'cuantitativa'
 })
+
+const evaluacionOptions = [
+  { value: 'cuantitativa', label: 'Cuantitativa (0-20)' },
+  { value: 'cualitativa', label: 'Cualitativa (A-E)' }
+]
 
 const state = reactive({
   staff_id: undefined,    
@@ -208,7 +215,7 @@ const nuevaMateria = async () => {
     
     toast.add({
       title: 'Error al agregar la materia',
-      description: error.data?.message || 'No se pudo agregar la materia. Revisa los campos.',
+      description: error.data?.msg || 'No se pudo agregar la materia. Revisa los campos.',
       color: 'error', 
       icon: 'i-lucide-alert-triangle',
       timeout: 5000
@@ -336,6 +343,15 @@ onMounted(() => {
                             />
                           </UFormField>
 
+                          <UFormField label="Tipo de Evaluación" name="tipo_evaluacion" class="w-full">
+                            <URadioGroup
+                              v-model="stateMateria.tipo_evaluacion"
+                              :items="evaluacionOptions"
+                              class="mt-1"
+                              :ui="{ wrapper: 'flex items-center gap-4' }"
+                            />
+                          </UFormField>
+
                           <UButton 
                             :loading="loading" 
                             type="submit" 
@@ -363,40 +379,7 @@ onMounted(() => {
 
       <!-- CARDS INFORMACION GENERAL -->
 
-        <div class="grid grid-cols-1 gap-2">
-          <div class="bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-3 hover:bg-primary-300 hover:scale-105 transition-all duration-300 group cursor-pointer">
-            <div class="p-2.5 bg-green-50 rounded-lg text-green-600"><UIcon name="i-lucide-users" class="size-6" /></div>
-            <div>
-              <p class="text-sm text-gray-400 font-bold uppercase tracking-wider group-hover:text-gray-700">Docentes Activos</p>
-              <p class="text-lg font-bold text-gray-700 group-hover:text-black">42</p>
-            </div>
-          </div>
-          
-          <div class="bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-3 hover:bg-blue-300 hover:scale-105 transition-all duration-300 group cursor-pointer">
-  
-            <div class="p-2.5 bg-blue-50 rounded-lg text-blue-600 transition-colors group-hover:bg-blue-100">
-              <UIcon name="i-lucide-book" class="size-6" />
-            </div>
-            
-            <div>
-              <p class="text-sm text-gray-400 font-bold uppercase tracking-wider transition-colors group-hover:text-gray-700">
-                Materias Totales
-              </p>
-              <p class="text-lg font-bold text-gray-700 transition-colors group-hover:text-black">
-                18
-              </p>
-            </div>
-
-          </div>
-
-          <div class="bg-white p-3 rounded-xl border border-gray-200 flex items-center gap-3 hover:bg-error-300 hover:scale-105 transition-all duration-300 group cursor-pointer">
-            <div class="p-2.5 bg-red-50 rounded-lg text-error transition-colors"><UIcon name="i-lucide-alert-triangle" class="size-6" /></div>
-            <div>
-              <p class="text-sm text-gray-400 font-bold uppercase tracking-wider transition-colors group-hover:text-gray-700">Sin Asignar</p>
-              <p class="text-lg font-bold text-gray-700 ransition-colors group-hover:text-black">03</p>
-            </div>
-          </div>
-        </div>
+      <AcademicLoadMetrics />
 
       </div>
 
@@ -416,5 +399,6 @@ onMounted(() => {
 
       </div>
     </div>
+    <AcademicLoadSubjectsTable />
   </div>
 </template>

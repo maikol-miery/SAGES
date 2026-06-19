@@ -12,6 +12,10 @@ export const materiaSchema = z.object({
     .transform(val => val.toUpperCase()), // SAGES la guarda siempre en mayúsculas automáticamente
     
   grado: z.string({ required_error: 'Debes seleccionar un año' })
-    .min(1, 'Selecciona un año escolar válido')
-})
+    .min(1, 'Selecciona un año escolar válido'),
 
+  // 🌟 CAMBIO NUEVO: Sincronizado con el selector y el backend
+  tipo_evaluacion: z.enum(['cuantitativa', 'cualitativa'], {
+    required_error: 'El tipo de evaluación es obligatorio'
+  }).default('cuantitativa')
+})

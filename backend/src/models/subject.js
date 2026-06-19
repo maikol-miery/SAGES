@@ -1,8 +1,8 @@
-const {DataTypes} = require("sequelize")
+const { DataTypes } = require("sequelize")
 const sequelize = require("../databases/db_config")
 
 const Subject = sequelize.define("subject", {
-   id: {
+    id: {
         type: DataTypes.UUID,
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
@@ -10,14 +10,19 @@ const Subject = sequelize.define("subject", {
     abreviatura: {
         type: DataTypes.STRING, // Ej: "MAT", "EF", "QUI"
         allowNull: false
-        // Quitamos el unique: true porque se repite en varios años
     },
     nombre: {
-        type: DataTypes.STRING, // Ej: "Matemáticas", "Educación Física"
+        type: DataTypes.STRING, // Ej: "Matemáticas", "Orientación y Convivencia"
         allowNull: false
     },
     grado: {
         type: DataTypes.STRING, 
+        allowNull: false
+    },
+    // 🌟 CAMBIO NUEVO: Control de escala para SAGES (0-20 o A-E)
+    tipo_evaluacion: {
+        type: DataTypes.ENUM('cuantitativa', 'cualitativa'),
+        defaultValue: 'cuantitativa',
         allowNull: false
     }
 }, {

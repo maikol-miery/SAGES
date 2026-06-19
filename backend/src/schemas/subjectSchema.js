@@ -13,9 +13,15 @@ const subjectFields = z.object({
         .min(3, "El nombre de la materia debe tener al menos 3 caracteres.")
         .max(100, "El nombre de la materia es demasiado largo."),
         
-    grado: z.enum(["1", "2", "3", "4", "5"], {
-        errorMap: () => ({ message: "Grado inválido. Debe ser un año del '1' al '5' de bachillerato." })
-    })
+    // 🌟 MODIFICADO: Se quita el enum rígido para dar soporte a escuelas técnicas (6to Año)
+    grado: z.string({ required_error: "El año / grado es requerido." })
+        .trim()
+        .min(1, "El grado no puede estar vacío."),
+
+    // 🌟 CAMBIO NUEVO: Validación estricta para la escala de calificaciones de SAGES
+    tipo_evaluacion: z.enum(['cuantitativa', 'cualitativa'], {
+        errorMap: () => ({ message: "El tipo de evaluación debe ser 'cuantitativa' (0-20) o 'cualitativa' (A-E)." })
+    }).default('cuantitativa') // Si no se envía en el body, Zod le asigna el valor por defecto
 });
 
 const createSubjectSchema = z.object({

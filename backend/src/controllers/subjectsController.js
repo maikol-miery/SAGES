@@ -1,75 +1,134 @@
-const { Subject, sequelize } = require('../models');
+// controllers/subjectController.js
+const { Subject } = require('../models');
 const { Op } = require('sequelize');
 
-const createSubject = async (req, res) =>{
+/**
+ * 🚀 CREAR MATERIA
+ */
+const createSubject = async (req, res) => {
     try {
-        
         const {
             abreviatura,
             nombre,
-            grado
+            grado,
+            tipo_evaluacion // 🌟 Capturamos la escala (cuantitativa o cualitativa)
         } = req.body;
 
+        // Validamos duplicados exactos en el mismo año escolar
         const existing = await Subject.findOne({
             where: {
                 [Op.or]: [
                     { nombre, grado }, 
-                    { abreviatura, grado}    
+                    { abreviatura, grado }    
                 ]
             }
         });
 
         if (existing) {
             return res.status(400).json({
-                msg: "nombre o abreviatura ya está en uso para este grado"
+                status: 'error',
+                msg: "El nombre o la abreviatura ya está en uso para este grado."
             });
         }
 
+        // Creamos el registro en Postgres
         const newSubject = await Subject.create({
             abreviatura,
             nombre,
-            grado
+            grado,
+            tipo_evaluacion // Se guardará con su ENUM correspondiente o tomará el default
         });
 
         return res.status(201).json({
             status: 'success',
-            msg:`${nombre} creada de forma exitosa`,
+            msg: `${nombre} creada de forma exitosa.`,
             newSubject
-        })
+        });
 
     } catch (error) {
-        console.error(error)
+        console.error('Error al crear la materia en SAGES:', error);
         return res.status(500).json({
-            msg:`no se pudo crear la materia`
-        })
+            status: 'error',
+            msg: `No se pudo crear la materia.`
+        });
     }
-}
+};
 
-const getAllSubjects = async(req, res) => {
+/**
+ * 🔍 OBTENER MATERIAS (Paginado + Filtros Avanzados)
+ */
+const getAllSubjects = async (req, res) => {
     try {
-        
-        const allSubjects = await Subject.findAll({
+        // 1. Parámetros de paginación
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10; 
+        const offset = (page - 1) * limit;
+
+        // 2. Parámetros de filtrado
+        const { search, year, type } = req.query;
+
+        // Inicializamos el objeto de condiciones
+        let subjectWhere = {};
+
+        // Filtro de Texto (Nombre o Abreviatura)
+        if (search && search.trim() !== '') {
+            subjectWhere[Op.or] = [
+                { nombre: { [Op.iLike]: `%${search.trim()}%` } },
+                { abreviatura: { [Op.iLike]: `%${search.trim()}%` } }
+            ];
+        }
+
+        // Filtro por Año / Grado
+        if (year && year !== 'Todos' && year.trim() !== '') {
+            subjectWhere.grado = year.trim(); 
+        }
+
+        // 🌟 Filtro por Tipo de Evaluación (cuantitativa / cualitativa)
+        if (type && type !== 'Todos' && type.trim() !== '') {
+            subjectWhere.tipo_evaluacion = type.trim().toLowerCase();
+        }
+
+        // 3. Consulta estructurada a la Base de Datos
+        const { count, rows } = await Subject.findAndCountAll({
+            where: subjectWhere,
+            limit: limit,
+            offset: offset,
             order: [['grado', 'ASC'], ['nombre', 'ASC']]
         });
 
-        if(allSubjects.length === 0){
+        if (rows.length === 0 && page === 1) {
             return res.status(200).json({
-                msg:"no hay materias registradas", 
-            })
+                status: "success",
+                message: "No hay materias registradas con los filtros aplicados.",
+                subjects: [],
+                totalItems: 0,
+                totalPages: 0,
+                currentPage: page
+            });
         }
 
+        // 4. Respuesta bajo tu estándar unificado
         return res.status(200).json({
-            subjects: allSubjects
-        })
+            status: "success",
+            totalItems: count,
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            subjects: rows
+        });
 
     } catch (error) {
-        console.error(error);
+        console.error('Error al obtener materias paginadas en SAGES:', error);
         return res.status(500).json({
-            msg:"no se puedo encontrar las meterias"
-        })
+            status: "error",
+            msg: "No se pudieron encontrar las materias.",
+            error: error.message
+        });
     }
-}
+};
 
+/**
+ * 🛠️ ACTUALIZAR MATERIA
+ */
 const updateSubject = async (req, res) => {
     const { id } = req.params;
     const dataToUpdate = { ...req.body };
@@ -85,18 +144,18 @@ const updateSubject = async (req, res) => {
             });
         }
 
-        // 2. Protegemos el ID para evitar alteraciones accidentales
+        // 2. Protegemos la PK
         delete dataToUpdate.id;
 
-        // 3. Cargamos los datos limpios en memoria
+        // 3. Cargamos los cambios en memoria (Postgres actualizará tipo_evaluacion si viene en el body)
         subject.set(dataToUpdate);
 
-        // 4. Guardamos en Postgres solo si hubo cambios reales
+        // 4. Guardamos solo si hay mutaciones reales
         if (subject.changed()) {
             await subject.save();
         }
 
-        // 5. Recargamos la instancia para reflejar los datos finales
+        // 5. Refrescamos la instancia
         await subject.reload();
 
         return res.status(200).json({
@@ -106,7 +165,7 @@ const updateSubject = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error al actualizar la materia:', error);
+        console.error('Error al actualizar la materia en SAGES:', error);
         return res.status(500).json({
             status: 'error',
             message: 'Ocurrió un error interno al actualizar la materia.',
@@ -115,9 +174,8 @@ const updateSubject = async (req, res) => {
     }
 };
 
-// Recuerda exportarla al final de tu archivo junto a las otras:
 module.exports = {
-    getAllSubjects,
     createSubject,
-    updateSubject // <--- Agregada aquí
+    getAllSubjects,
+    updateSubject
 };
