@@ -174,8 +174,40 @@ const updateSubject = async (req, res) => {
     }
 };
 
+const deleteSubject = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // .destroy() ejecutará un Soft Delete gracias al paranoid: true
+    const filasAfectadas = await Subject.destroy({
+      where: { id }
+    });
+
+    // Si devuelve 0, significa que el ID no existía o ya estaba borrado
+    if (filasAfectadas === 0) {
+      return res.status(404).json({
+        status: 'error',
+        msg: 'La asignatura no existe o ya fue desincorporada del sistema.'
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      msg: 'Materia desincorporada lógicamente con éxito.'
+    });
+
+  } catch (error) {
+    console.error('❌ Error en deleteSubject de SAGES:', error);
+    return res.status(500).json({
+      status: 'error',
+      msg: 'Hubo un error interno en el servidor al intentar remover la materia.'
+    });
+  }
+};
+
 module.exports = {
     createSubject,
     getAllSubjects,
-    updateSubject
+    updateSubject,
+    deleteSubject
 };

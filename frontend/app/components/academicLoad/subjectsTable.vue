@@ -57,7 +57,7 @@ const columns = [
             label: 'Eliminar', 
             icon: 'i-lucide-trash',
             class: 'text-red-600 focus:text-red-600',
-            onSelect: () => console.log('Eliminar', row.original)
+            onSelect: () => confirmarEliminarMateria(row.original)
           }
         ]]
       },
@@ -79,6 +79,10 @@ const stateEditar = ref({
   grado: '',
   tipo_evaluacion: 'cuantitativa'
 })
+
+const modalEliminarAbierto = ref(false)
+const loading = ref(false)
+const materiaAEliminar = ref(null)
 
 const search = ref('')
 const selectedYear = ref('Todos')
@@ -180,6 +184,43 @@ const guardarCambiosMateria = async () => {
     })
   } finally {
     cargandoEdicion.value = false
+  }
+}
+
+// Función para capturar los datos e invocar el modal
+const confirmarEliminarMateria = (materia) => {
+  materiaAEliminar.value = materia
+  modalEliminarAbierto.value = true
+}
+
+const ejecutarEliminacion = async () => {
+  if (!materiaAEliminar.value) return
+
+  loading.value = true
+  try {
+    // 🌟 Mañana configuramos esta petición con Sequelize en el backend
+    const response = await useApi(`/subjects/${materiaAEliminar.value.id}`, {
+      method: "DELETE",
+    })
+
+    if(response && response.status === "success"){
+    
+      toast.add({
+        title: 'Materia eliminada',
+        description: response.msg,
+        color: 'success',
+        icon: 'i-lucide-check-circle',
+        timeout: 4000
+      })
+      
+      modalEliminarAbierto.value = false
+      materiaAEliminar.value = null
+      cargarMaterias() // Recarga la tabla de inmediato
+    }
+  } catch (error) {
+    console.error('❌ Error al eliminar materia', error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -341,6 +382,48 @@ onMounted(() => {
             icon="i-lucide-save"
             :loading="cargandoEdicion"
             @click="guardarCambiosMateria" 
+          />
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="modalEliminarAbierto" :ui="{ content: 'sm:max-w-md' }">
+      
+      <template #header>
+        <div class="flex items-center gap-2 text-red-600 w-full">
+          <h3 class="font-bold text-xl">¿Confirmar eliminación?</h3>
+        </div>
+      </template>
+
+      <template #body>
+        <div class="space-y-3 py-2">
+          <p class="text-sm text-neutral-600">
+            Estás a punto de desincorporar la materia 
+            <span class="font-bold text-neutral-900 uppercase">
+              {{ materiaAEliminar?.nombre }} ({{ materiaAEliminar?.abreviatura }})
+            </span>.
+          </p>
+          <div class="text-xs text-red-600 bg-red-50 p-3 rounded-xl border border-red-100 space-y-1">
+            <p><strong>⚠️ Nota importante:</strong></p>
+            <p>Esta acción no eliminará el historial de notas ni cargas académicas de años anteriores, pero la materia ya no estará disponible para nuevas asignaciones.</p>
+          </div>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-2 w-full">
+          <UButton 
+            label="Cancelar" 
+            color="neutral" 
+            variant="ghost" 
+            @click="modalEliminarAbierto = false" 
+          />
+          <UButton 
+            label="Eliminar Asignatura"  
+            icon="i-lucide-trash"
+            color="error"
+            :loading="loading"
+            @click="ejecutarEliminacion" 
           />
         </div>
       </template>

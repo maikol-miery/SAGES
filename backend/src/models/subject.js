@@ -27,7 +27,8 @@ const Subject = sequelize.define("subject", {
     }
 }, {
     tableName: 'materias',
-    timestamps: true
+    timestamps: true,
+    paranoid: true
 });
 
 module.exports = Subject;
