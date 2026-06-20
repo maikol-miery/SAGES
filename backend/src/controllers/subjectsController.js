@@ -59,13 +59,13 @@ const createSubject = async (req, res) => {
  */
 const getAllSubjects = async (req, res) => {
     try {
-        // 1. Parámetros de paginación
+        // 1. Parámetros de paginación y control de flujo
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10; 
         const offset = (page - 1) * limit;
-
-        // 2. Parámetros de filtrado
-        const { search, year, type } = req.query;
+        
+        // 🌟 Capturamos el nuevo flag 'all' enviado desde el frontend
+        const { search, year, type, all } = req.query;
 
         // Inicializamos el objeto de condiciones
         let subjectWhere = {};
@@ -78,23 +78,31 @@ const getAllSubjects = async (req, res) => {
             ];
         }
 
-        // Filtro por Año / Grado
+        // Filtro por Año / Grado (¡Servirá tanto para "Todos" como para el año exacto que le mandes!)
         if (year && year !== 'Todos' && year.trim() !== '') {
             subjectWhere.grado = year.trim(); 
         }
 
-        // 🌟 Filtro por Tipo de Evaluación (cuantitativa / cualitativa)
+        // Filtro por Tipo de Evaluación (cuantitativa / cualitativa)
         if (type && type !== 'Todos' && type.trim() !== '') {
             subjectWhere.tipo_evaluacion = type.trim().toLowerCase();
         }
 
-        // 3. Consulta estructurada a la Base de Datos
-        const { count, rows } = await Subject.findAndCountAll({
+        // 🌟 2. Configuración dinámica de opciones para Sequelize
+        // El orden se mantiene siempre igual
+        let queryOptions = {
             where: subjectWhere,
-            limit: limit,
-            offset: offset,
             order: [['grado', 'ASC'], ['nombre', 'ASC']]
-        });
+        };
+
+        // 🌟 SI 'all' NO es true, aplicamos el límite y el offset para paginar la tabla
+        if (all !== 'true') {
+            queryOptions.limit = limit;
+            queryOptions.offset = offset;
+        }
+
+        // 3. Consulta estructurada a la Base de Datos con nuestras opciones dinámicas
+        const { count, rows } = await Subject.findAndCountAll(queryOptions);
 
         if (rows.length === 0 && page === 1) {
             return res.status(200).json({
@@ -107,11 +115,12 @@ const getAllSubjects = async (req, res) => {
             });
         }
 
-        // 4. Respuesta bajo tu estándar unificado
+        // 4. Respuesta unificada
+        // Si no está paginado, calculamos dinámicamente el totalPages como 1
         return res.status(200).json({
             status: "success",
             totalItems: count,
-            totalPages: Math.ceil(count / limit),
+            totalPages: all === 'true' ? 1 : Math.ceil(count / limit),
             currentPage: page,
             subjects: rows
         });

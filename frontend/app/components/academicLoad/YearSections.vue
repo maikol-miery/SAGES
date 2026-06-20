@@ -50,7 +50,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="h-[calc(95vh-280px)] overflow-y-auto pr-2 mt-4 custom-scrollbar">
+  <div class="h-[calc(90vh-280px)] overflow-y-auto pr-2 mt-4 custom-scrollbar">
     
     <template v-if="loading">
       <div class="grid grid-cols-2 gap-4">
