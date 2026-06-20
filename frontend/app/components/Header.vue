@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
 const userName = useCookie('user_name')
@@ -7,7 +7,7 @@ const userRole = useCookie('user_role')
 
 const route = useRoute()
 
-// 2. Diccionario que mapea la URL con el título real que quieres mostrar
+// Diccionario que mapea la URL con el título real de la página
 const titulosPaginas = {
   '/dashboard': 'Inicio',
   '/dashboard/personal': 'Gestión de Personal',
@@ -17,23 +17,21 @@ const titulosPaginas = {
   '/dashboard/perfil': 'Mi Perfil'
 }
 
-// 3. Propiedad computada que vigila la URL y devuelve el título correspondiente
+// Propiedad computada que vigila la URL y devuelve el título correspondiente
 const tituloActual = computed(() => {
-  // Buscamos la ruta actual en nuestro diccionario. 
-  // Si por alguna razón no existe (ej: una subruta), ponemos 'SAGES' por defecto.
   return titulosPaginas[route.path] || 'SAGES'
 })
 
-// 1. El array de opciones vuelve a ser un JSON plano, limpio y sin funciones adentro
-const anosEscolares = [
+// 1. Array de opciones limpio con la nomenclatura 'anio'
+const aniosEscolares = [
   [
     { label: 'Año Escolar: 2025-2026', value: '2025-2026' },
     { label: 'Año Escolar: 2024-2025', value: '2024-2025' }
   ]
 ]
 
-// 2. Tu ref inicializado con el objeto completo por defecto
-const anoSeleccionado = ref(anosEscolares[0][0])
+// 2. 🚀 Usamos useState para que el año seleccionado sea global y accesible en otras vistas
+const anioSeleccionado = useState('anio_escolar_activo', () => aniosEscolares[0][0])
 </script>
 
 <template>
@@ -44,12 +42,13 @@ const anoSeleccionado = ref(anosEscolares[0][0])
         {{ tituloActual }}
       </h2>
       <USeparator orientation="vertical" type="solid" size="sm" color="neutral" class="h-8"></USeparator>
+      
       <USelectMenu 
-      :items="anosEscolares" 
-      :search-input="false" 
-      v-model="anoSeleccionado" 
-      icon="i-lucide-calendar"
-      class="bg-white"
+        :items="aniosEscolares" 
+        :search-input="false" 
+        v-model="anioSeleccionado" 
+        icon="i-lucide-calendar"
+        class="bg-white"
       >
       </USelectMenu>
     </div>
@@ -57,23 +56,22 @@ const anoSeleccionado = ref(anosEscolares[0][0])
     <div class="flex items-center gap-4">
       <UTooltip arrow text="Notificaciones" :delay-duration="150">
         <UButton
-            icon="i-heroicons-bell"
-            color="gray"
-            variant="ghost"
-            class="text-gray-500 hover:text-gray-700 hover:bg-olivine-300 rounded-full"
+          icon="i-heroicons-bell"
+          color="gray"
+          variant="ghost"
+          class="text-gray-500 hover:text-gray-700 hover:bg-olivine-300 rounded-full"
         />
       </UTooltip>
       
-    <UTooltip arrow text="Ayuda" :delay-duration="150">
+      <UTooltip arrow text="Ayuda" :delay-duration="150">
         <UButton
-        icon="i-heroicons-question-mark-circle"
-        color="gray"
-        variant="ghost"
-        class="text-gray-500 hover:text-gray-700 hover:bg-gray-300 rounded-full"
-      />
-    </UTooltip>
+          icon="i-heroicons-question-mark-circle"
+          color="gray"
+          variant="ghost"
+          class="text-gray-500 hover:text-gray-700 hover:bg-gray-300 rounded-full"
+        />
+      </UTooltip>
       
-
       <div class="h-6 w-[1px] bg-gray-200"></div>
 
       <div class="flex items-center gap-3">

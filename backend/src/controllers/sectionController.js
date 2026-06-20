@@ -1,4 +1,4 @@
-const { Section, sequelize } = require('../models');
+const { Section, AcademicLoad, Registration, sequelize } = require('../models');
 
 const createSection = async (req, res) =>{
     try {
@@ -22,6 +22,7 @@ const createSection = async (req, res) =>{
         })
 
         return res.status(201).json({
+            status:"success",
             msg:"Sección creada de forma exitosa",
             section: newSection
         })
@@ -104,9 +105,55 @@ const updateSection = async (req, res) => {
     }
 };
 
+const deleteSection = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // 1. Buscar si la sección existe
+    const section = await Section.findByPk(id);
+    if (!section) {
+      return res.status(404).json({ msg: 'La sección no existe.' });
+    }
+
+    // 2. REGLA 1: Validar si tiene materias asociadas en la carga académica
+    // Nota: Asegúrate de que 'sectionId' coincida con tu FK en AcademicLoad
+    const hasSubjects = await AcademicLoad.findOne({ where: { section_id: id } });
+    if (hasSubjects) {
+      return res.status(409).json({ 
+        msg: `No se puede eliminar la Sección ${section.seccion} porque tiene materias asignadas en la distribución de carga.` 
+      });
+    }
+
+    // 3. REGLA 2: Validar si tiene estudiantes inscritos en ella
+    // Nota: Asegúrate de que 'sectionId' coincida con tu FK en Student
+    const hasStudents = await Registration.findOne({ where: { section_id: id } });
+    if (hasStudents) {
+      return res.status(409).json({ 
+        msg: `No se puede eliminar la Sección ${section.seccion} porque tiene alumnos inscritos en este ciclo.` 
+      });
+    }
+
+    // 4. Si pasa ambas validaciones, borrado físico estricto
+    await section.destroy();
+
+    return res.status(200).json({ 
+        status:"success",
+        msg: `La sección "${section.seccion}" fue eliminada correctamente del sistema.` 
+    });
+
+  } catch (error) {
+    console.error('Error en deleteSection:', error);
+    return res.status(500).json({ 
+        status:"error",
+        msg: 'Error interno del servidor al intentar eliminar la sección.' 
+    });
+  }
+};
+
 // Exportamos junto a las que ya tenías
 module.exports = {
     createSection,
     getAllSections,
-    updateSection 
+    updateSection,
+    deleteSection 
 };

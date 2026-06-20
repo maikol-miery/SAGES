@@ -2,6 +2,7 @@
 import { materiaSchema } from '~/schemas/materiaSchema.js'
 
 const toast = useToast()
+const anioGlobal = useState('anio_escolar_activo')
 
 // 1. ESTADO REACTIVO DE CONTROL DE UI
 const activeYear = ref('1') 
@@ -350,7 +351,8 @@ onMounted(() => {
 
       <academicLoadYearSections 
         ref="childRef" 
-        :year="activeYear" 
+        :year="activeYear"
+        :anioEscolar="anioGlobal?.value"
       />
     </div>
 
