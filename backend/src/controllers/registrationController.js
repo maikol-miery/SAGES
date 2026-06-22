@@ -445,5 +445,5 @@ module.exports =
     updateRegistration,
     getAllRegistrations,
     updateFullRegistration,
-    fullEnrollment 
+    fullEnrollment
 };

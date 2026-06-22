@@ -1,6 +1,4 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
-
 const props = defineProps({
   year: {
     type: [Number, String],
@@ -13,18 +11,25 @@ const props = defineProps({
 })
 
 const toast = useToast()
-const seccionIdExpandida = ref(null)
 const loading = ref(true)
 const secciones = ref([])
+const seccionIdExpandida = ref(null)
 
-// Estados para Modal de Creación
 const modalAbierto = ref(false)
 const creandoSeccion = ref(false)
 
-// 🚨 Estados para Modal de Eliminación Estricta
 const modalEliminarAbierto = ref(false)
 const seccionParaEliminar = ref(null)
 const eliminandoSeccion = ref(false)
+
+// Estados para el nuevo modal de la materia
+const modalEliminarMateriaAbierto = ref(false)
+const materiaParaEliminar = ref(null)
+const desvinculandoMateriaId = ref(null)
+
+const listaDocentes = ref([])
+const docenteSeleccionado = ref(null)
+const actualizandoDocenteId = ref(null)
 
 const siguienteLetra = computed(() => {
   if (!secciones.value || secciones.value.length === 0) return 'A'
@@ -39,14 +44,38 @@ const toggleExpandir = (id) => {
   seccionIdExpandida.value = seccionIdExpandida.value === id ? null : id
 }
 
+const abrirConfirmarEliminar = (seccion) => {
+  seccionParaEliminar.value = seccion
+  modalEliminarAbierto.value = true
+}
+
+const abrirConfirmarDesvincular = (materia) => {
+  materiaParaEliminar.value = materia
+  modalEliminarMateriaAbierto.value = true
+}
+
 const cargarSecciones = async () => {
   loading.value = true
   try {
+    // 1. Cargamos las secciones de la carga académica
     const response = await useApi('/academic-load', {
       method: 'GET',
       query: { grado: `${props.year}` }
     })
     secciones.value = response.sections ?? []
+    
+    // 2. Cargamos los docentes reales desde la tabla staff/personal
+    const staffResponse = await useApi('/staff', {
+      method: 'GET',
+      query: { tipo_personal: 'docente' }
+    })
+
+    if (staffResponse && staffResponse.data) {
+      listaDocentes.value = staffResponse.data.map(t => ({
+        id: t.id,
+        label: `Prof. ${t.nombre} ${t.apellido}`
+      }))
+    }
   } catch (error) {
     console.error('Error cargando secciones en SAGES:', error)
     secciones.value = []
@@ -58,7 +87,7 @@ const cargarSecciones = async () => {
 const confirmarNuevaSeccion = async () => {
   creandoSeccion.value = true
   try {
-    const response = await useApi('/sections', {
+    await useApi('/sections', {
       method: 'POST',
       body: {
         grado: `${props.year}`,
@@ -67,16 +96,14 @@ const confirmarNuevaSeccion = async () => {
       }
     })
 
-    if (response && response.status === "success") {
-      toast.add({
-        title: '¡Sección Creada!',
-        description: `La sección ${siguienteLetra.value} de ${props.year}° Año fue registrada con éxito.`,
-        color: 'success',
-        icon: 'i-lucide-check-circle'
-      })
-      modalAbierto.value = false
-      await cargarSecciones()
-    }
+    toast.add({
+      title: '¡Sección Creada!',
+      description: `La sección ${siguienteLetra.value} de ${props.year}° Año fue registrada con éxito.`,
+      color: 'success',
+      icon: 'i-lucide-check-circle'
+    })
+    modalAbierto.value = false
+    await cargarSecciones()
   } catch (error) {
     console.error('Error al registrar la sección:', error)
     toast.add({
@@ -90,36 +117,26 @@ const confirmarNuevaSeccion = async () => {
   }
 }
 
-// 🚨 Funciones para la eliminación estricta
-const abrirConfirmarEliminar = (seccion) => {
-  seccionParaEliminar.value = seccion
-  modalEliminarAbierto.value = true
-}
-
 const ejecutarEliminacionEstricta = async () => {
   if (!seccionParaEliminar.value) return
   
   eliminandoSeccion.value = true
   try {
-    const response = await useApi(`/sections/${seccionParaEliminar.value.id}`, {
+    await useApi(`/sections/${seccionParaEliminar.value.id}`, {
       method: 'DELETE'
     })
 
-    if(response && response.status === "success"){
-      toast.add({
-        title: 'Sección Eliminada',
-        description: response.msg,
-        color: 'success',
-        icon: 'i-lucide-trash-2'
-      })
-
-      modalEliminarAbierto.value = false
-      seccionParaEliminar.value = null
-      await cargarSecciones() // Recargar grilla
-    }
+    toast.add({
+      title: 'Sección Eliminada',
+      description: `La sección ${seccionParaEliminar.value.letra} fue eliminada correctamente.`,
+      color: 'success',
+      icon: 'i-lucide-trash-2'
+    })
+    modalEliminarAbierto.value = false
+    seccionParaEliminar.value = null
+    await cargarSecciones()
   } catch (error) {
     console.error('Error al eliminar sección:', error)
-    // Captura el error 409 (Conflict) enviado por las reglas de negocio del backend
     toast.add({
       title: 'Acción Rechazada',
       description: error.data?.msg || 'No se pudo eliminar la sección debido a dependencias activas.',
@@ -128,6 +145,74 @@ const ejecutarEliminacionEstricta = async () => {
     })
   } finally {
     eliminandoSeccion.value = false
+  }
+}
+
+const desvincularMateria = async () => {
+  if (!materiaParaEliminar.value) return
+
+  desvinculandoMateriaId.value = materiaParaEliminar.value.id
+  try {
+    await useApi(`/academic-load/${materiaParaEliminar.value.id}`, {
+      method: 'DELETE'
+    })
+
+    toast.add({
+      title: 'Asignación Removida',
+      description: 'La materia se retiró de la sección correctamente.',
+      color: 'success',
+      icon: 'i-lucide-check-circle'
+    })
+    modalEliminarMateriaAbierto.value = false
+    materiaParaEliminar.value = null
+    await cargarSecciones()
+  } catch (error) {
+    console.error('Error al desvincular la materia:', error)
+    toast.add({
+      title: 'Error al remover',
+      description: error.data?.msg || 'No se pudo desvincular la materia de esta sección.',
+      color: 'error',
+      icon: 'i-lucide-alert-triangle'
+    })
+  } finally {
+    desvinculandoMateriaId.value = null
+  }
+}
+
+const modificarDocente = async (academicLoadId, closePopover) => {
+  if (!docenteSeleccionado.value) {
+    toast.add({ title: 'Aviso', description: 'Por favor, selecciona un docente de la lista.', color: 'warning' })
+    return
+  }
+
+  actualizandoDocenteId.value = academicLoadId
+  try {
+    const response = await useApi(`/academic-load/${academicLoadId}`, {
+      method: 'PATCH',
+      body: { staff_id: docenteSeleccionado.value }
+    })
+
+    if (response && response.status === "success") {
+      toast.add({
+        title: 'Carga Modificada',
+        description: 'El docente fue reasignado exitosamente.',
+        color: 'success',
+        icon: 'i-lucide-check-circle'
+      })
+      docenteSeleccionado.value = null
+      closePopover()
+      await cargarSecciones()
+    }
+  } catch (error) {
+    console.error('Error al reasignar docente:', error)
+    toast.add({
+      title: 'Error al actualizar',
+      description: error.data?.msg || 'No se pudo cambiar el docente de esta carga académica.',
+      color: 'error',
+      icon: 'i-lucide-alert-triangle'
+    })
+  } finally {
+    actualizandoDocenteId.value = null
   }
 }
 
@@ -205,7 +290,51 @@ defineExpose({ cargarSecciones })
                     <span class="text-md font-bold text-gray-700 leading-tight">{{ materia.nombre }}</span>
                     <span class="text-sm text-primary-600 font-semibold mt-0.5">{{ materia.docente }}</span>
                   </div>
-                  <UButton color="error" variant="ghost" icon="i-lucide-trash-2" size="xs" />
+                  
+                  <div class="flex items-center gap-1">
+                    <UPopover mode="click">
+                      <UButton
+                        color="neutral"
+                        variant="ghost"
+                        icon="i-lucide-edit"
+                        size="xs"
+                        class="opacity-60 hover:opacity-100 transition-opacity"
+                        @click.stop
+                      />
+                      <template #content="{ close }">
+                        <div class="p-3.5 w-64 flex flex-col gap-2.5" @click.stop>
+                          <span class="text-xs font-bold text-gray-600 block">Cambiar Docente Asignado:</span>
+                          <USelectMenu
+                            v-model="docenteSeleccionado"
+                            :items="listaDocentes"
+                            value-key="id"
+                            label-key="label"
+                            placeholder="Selecciona un profesor..."
+                            size="sm"
+                          />
+                          <div class="flex justify-end gap-2 mt-1">
+                            <UButton label="Cancelar" color="neutral" variant="ghost" size="xs" @click="close" />
+                            <UButton 
+                              label="Guardar" 
+                              color="primary" 
+                              size="xs" 
+                              :loading="actualizandoDocenteId === materia.id" 
+                              @click="modificarDocente(materia.id, close)" 
+                            />
+                          </div>
+                        </div>
+                      </template>
+                    </UPopover>
+
+                    <UButton 
+                      color="error" 
+                      variant="ghost" 
+                      icon="i-lucide-trash-2" 
+                      size="xs" 
+                      :loading="desvinculandoMateriaId === materia.id"
+                      @click.stop="abrirConfirmarDesvincular(materia)"
+                    />
+                  </div>
                 </div>
               </template>
 
@@ -262,7 +391,7 @@ defineExpose({ cargarSecciones })
 
     <UModal v-model:open="modalEliminarAbierto">
       <template #header>
-        <div class="flex items-center gap-2 text-error-700">
+        <div class="flex items-center gap-2">
           <UIcon name="i-lucide-alert-triangle" class="size-5 text-red-500" />
           <h3 class="font-bold text-base text-gray-800">Confirmar eliminación de sección</h3>
         </div>
@@ -284,6 +413,35 @@ defineExpose({ cargarSecciones })
           </UButton>
           <UButton color="error" icon="i-lucide-trash-2" :loading="eliminandoSeccion" @click="ejecutarEliminacionEstricta">
             Eliminar Registro
+          </UButton>
+        </div>
+      </template>
+    </UModal>
+
+    <UModal v-model:open="modalEliminarMateriaAbierto">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-alert-triangle" class="size-5 text-red-500" />
+          <h3 class="font-bold text-base text-gray-800">Retirar materia de la sección</h3>
+        </div>
+      </template>
+
+      <template #body>
+        <div class="space-y-3 text-sm text-neutral-600">
+          <p>¿Estás seguro de que deseas retirar la materia <span class="font-bold text-gray-800">{{ materiaParaEliminar?.nombre }}</span> dictada por <span class="font-semibold text-primary-600">{{ materiaParaEliminar?.docente }}</span> de este grupo?</p>
+          <p class="text-xs text-gray-400">
+            Esta acción removerá la asignación actual, pero no eliminará la materia del catálogo del sistema.
+          </p>
+        </div>
+      </template>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <UButton color="neutral" variant="ghost" :disabled="desvinculandoMateriaId !== null" @click="modalEliminarMateriaAbierto = false">
+            Cancelar
+          </UButton>
+          <UButton color="error" icon="i-lucide-trash" :loading="desvinculandoMateriaId !== null" @click="desvincularMateria">
+            Confirmar y retirar
           </UButton>
         </div>
       </template>

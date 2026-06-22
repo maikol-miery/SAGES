@@ -1,5 +1,5 @@
 // backend/src/controllers/academicLoadController.js
-const { AcademicLoad, Staff, Subject, Section } = require('../models');
+const { AcademicLoad, Staff, Subject, Section, Qualification} = require('../models');
 
 const assignTeacher = async (req, res) => {
     try {
@@ -159,24 +159,32 @@ const updateAcademicLoad = async (req, res) => {
         if (!academicLoad) {
             return res.status(404).json({
                 status: 'error',
-                message: 'La asignación de carga académica no existe en el sistema.'
+                msg: 'La asignación de carga académica no existe en el sistema.'
             });
         }
 
         // Protegemos el ID primario de modificaciones accidentales
         delete dataToUpdate.id;
 
+        // Setea dinámicamente lo que venga en el body (ej: { docente_id: 4 })
         academicLoad.set(dataToUpdate);
 
+        // ✅ Validamos si realmente cambiaron los datos antes de salvar
         if (academicLoad.changed()) {
             await academicLoad.save();
+        } else {
+            // Si llega aquí es porque el docente_id enviado es exactamente el mismo que ya tenía
+            return res.status(400).json({
+                status: 'error',
+                msg: 'No se detectaron cambios nuevos para actualizar en esta carga.'
+            });
         }
 
         await academicLoad.reload();
 
         return res.status(200).json({
             status: 'success',
-            message: 'Carga académica modificada con éxito.',
+            msg: 'Carga académica modificada con éxito.',
             data: { academicLoad }
         });
 
@@ -184,14 +192,50 @@ const updateAcademicLoad = async (req, res) => {
         console.error('Error al actualizar la carga académica:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Ocurrió un error interno al actualizar la carga académica.',
+            msg: 'Ocurrió un error interno al actualizar la carga académica.',
             error: error.message
         });
     }
 };
 
+const deleteAcademicLoad = async (req, res) => {
+  const { id } = req.params; // ID de la asignación de carga académica
+
+  try {
+    const assignment = await AcademicLoad.findByPk(id);
+    if (!assignment) {
+      return res.status(404).json({ msg: 'La asignación de materia no existe.' });
+    }
+
+    // 🚨 CONTROL DE BORRADO ESTRICTO: Validamos si existen calificaciones asociadas
+    const hasQualifications = await Qualification.findOne({
+      where: { academic_load_id: id }
+    });
+
+    if (hasQualifications) {
+      return res.status(400).json({
+        status: 'error',
+        msg: 'No se puede desvincular la materia porque ya existen calificaciones registradas en ella.'
+      });
+    }
+
+    // Borrado físico de la asignación si pasa la validación
+    await assignment.destroy();
+
+    return res.status(200).json({
+      status: 'success',
+      msg: 'La materia fue desvinculada de la sección correctamente.'
+    });
+
+  } catch (error) {
+    console.error('Error en removeAcademicAssignment:', error);
+    return res.status(500).json({ msg: 'Error interno del servidor al remover la asignación.' });
+  }
+};
+
 module.exports = {
     assignTeacher, // Mantenemos el nombre de exportación intacto para no romper tus archivos de rutas
     getAcademicLoads,
-    updateAcademicLoad
+    updateAcademicLoad,
+    deleteAcademicLoad
 };

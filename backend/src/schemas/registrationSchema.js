@@ -10,9 +10,9 @@ const registrationFields = z.object({
         
     tipo_inscripcion: z.string({ required_error: "El tipo de inscripción es requerido." })
         .trim()
-        .toLowerCase()
-        .refine((val) => ['regular', 'repitente', 'traslado'].includes(val), {
-            message: "Tipo de inscripción inválido. Valores permitidos: regular, repitente, traslado."
+        .toUpperCase() // 🔄 Modificado para procesar las siglas en mayúsculas del frontend
+        .refine((val) => ['RG', 'RP', 'MP', 'EQ'].includes(val), {
+            message: "Tipo de inscripción inválido. Valores permitidos: RG, RP, MP, EQ."
         }),
         
     observaciones: z.string()
@@ -25,7 +25,7 @@ const registrationFields = z.object({
         .trim()
         .toLowerCase()
         .refine((val) => ['pendiente', 'confirmada', 'anulada'].includes(val), {
-            message: "Estado inválido. Valores permitidos: pendiente, confirmada, anulada."
+            message: "Estado inválido. Valores permitidos: pendiente, confirmada, annulada."
         })
         .default('confirmada')
 });
@@ -47,7 +47,7 @@ const bulkRegistrationSchema = z.object({
             
         tipo_inscripcion: z.string({ required_error: "El tipo de inscripción es requerido." })
             .trim()
-            .toLowerCase(),
+            .toUpperCase(), // 🔄 Modificado también aquí para mantener consistencia
             
         observaciones: z.string().max(255).optional().nullable(),
         

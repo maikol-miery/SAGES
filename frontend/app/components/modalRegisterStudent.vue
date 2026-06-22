@@ -40,7 +40,7 @@ const schemaActual = computed(() => schemas[currentStep.value])
 
 const state = reactive({
   section_id:       '',
-  tipo_inscripcion: 'regular',
+  tipo_inscripcion: 'RG',
   observaciones:    '',
   estudiante: {
     cedula:           '',
