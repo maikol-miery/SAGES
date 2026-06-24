@@ -42,8 +42,6 @@ const studentSubSchema = z.object({
     
     direccion: z.string().trim().max(255, "La dirección es demasiado larga.").optional().nullable(),
     
-    // Hacemos el representative_id opcional aquí porque si es nuevo ingreso,
-    // el ID se generará en el backend tras crear al representante.
     representative_id: z.string().uuid("El ID del representante debe ser un UUID válido.").optional().nullable()
 });
 
@@ -77,19 +75,21 @@ const representativeSubSchema = z.object({
 const fullRegistrationSchema = z.object({
     body: z.object({
         section_id: z.string({ required_error: "El ID de la sección es requerido." })
-        .uuid("El ID de la sección debe ser un UUID válido."),
+            .uuid("El ID de la sección debe ser un UUID válido."),
+            
         tipo_inscripcion: z.string({ required_error: "El tipo de inscripción es requerido." })
             .trim()
-            .toLowerCase()
-            .refine((val) => ['regular', 'repitente', 'traslado'].includes(val), {
-                message: "Tipo de inscripción inválido. Valores: regular, repitente, traslado."
+            .toUpperCase() // 🎯 Transforma a mayúsculas para evitar fallos de case-sensitive
+            .refine((val) => ['RG', 'RP', 'MP', 'EQ'].includes(val), {
+                message: "Tipo de inscripción inválido. Valores permitidos: RG, RP, MP, EQ."
             }),
+            
         observaciones: z.string().trim().max(255).optional().nullable(),
         
         // El estudiante siempre es obligatorio
         estudiante: studentSubSchema,
         
-        // El representante es opcional en el esquema general porque puede que usen un CASO B (ID existente)
+        // El representante es opcional (Caso B)
         representante: representativeSubSchema.optional().nullable()
     })
 });
