@@ -8,6 +8,9 @@ const { createQualificationSchema, updateQualificationSchema, createBulkQualific
 //registrar una sola nota (Individual)
 router.post('/', authenticateToken, validateSchema(createQualificationSchema), qualificationController.saveQualification);
 
+router.get('/:academic_load_id/:lapso', authenticateToken, qualificationController.getSectionQualifications);
+
+
 //actualizar una sola nota por su ID (Individual)
 router.put('/:id', authenticateToken, validateSchema(updateQualificationSchema), qualificationController.updateQualification);
 

@@ -1,132 +1,348 @@
-const { Qualification, AcademicLoad, Student, Registration, sequelize } = require('../models');
+const { Qualification, AcademicLoad, Student, Registration, EvaluationDetail, sequelize } = require('../models');
+const { Op } = require('sequelize');
 
 // 1. REGISTRAR UNA SOLA NOTA (POST /api/qualifications)
-const saveQualification = async (req, res, next) => {
+const saveQualification = async (req, res) => {
+    const t = await sequelize.transaction();
     try {
-        const { student_id, academic_load_id, lapso, nota, tipo_evaluacion } = req.body;
+        // req.body ya viene limpio y validado por createQualificationSchema
+        const { 
+            student_id, 
+            academic_load_id, 
+            lapso, 
+            calificacion_final, 
+            puntos_ajuste, 
+            puntos_extracatedra, 
+            clausula_aplicada, 
+            nota_definitiva, 
+            observaciones,
+            notas_parciales 
+        } = req.body;
 
-        const academicLoad = await AcademicLoad.findByPk(academic_load_id);
-        if (!academicLoad) {
-            return res.status(404).json({ status: "error", message: "La carga académica no existe." });
-        }
-
-        const registration = await Registration.findOne({
-            where: {
-                student_id,
-                section_id: academicLoad.section_id 
-            }
+        // 1. Crear o actualizar la calificación base (Upsert individual)
+        const [qualification, created] = await Qualification.findOrCreate({
+            where: { student_id, academic_load_id, lapso },
+            defaults: {
+                calificacion_final,
+                puntos_ajuste,
+                puntos_extracatedra,
+                clausula_aplicada,
+                nota_definitiva,
+                observaciones
+            },
+            transaction: t
         });
 
-        if (!registration) {
-            return res.status(400).json({ 
-                status: "error", 
-                message: "El estudiante no se encuentra inscrito en la sección correspondiente a esta carga académica." 
-            });
+        if (!created) {
+            await qualification.update({
+                calificacion_final,
+                puntos_ajuste,
+                puntos_extracatedra,
+                clausula_aplicada,
+                nota_definitiva,
+                observaciones
+            }, { transaction: t });
         }
 
-        const existing = await Qualification.findOne({ where: { student_id, academic_load_id, lapso } });
-        if (existing) {
-            return res.status(409).json({ 
-                status: "error", 
-                message: "Ya existe una calificación registrada para este alumno en este lapso. Use el método PUT para modificarla." 
-            });
+        // 2. Si se envían notas parciales (1 al 5), las sincronizamos
+        if (notas_parciales && notas_parciales.length > 0) {
+            await Promise.all(notas_parciales.map(async (p) => {
+                const [detail, detailCreated] = await EvaluationDetail.findOrCreate({
+                    where: { 
+                        qualification_id: qualification.id, 
+                        numero_evaluacion: p.numero_evaluacion 
+                    },
+                    defaults: { nota: p.nota },
+                    transaction: t
+                });
+
+                if (!detailCreated) {
+                    await detail.update({ nota: p.nota }, { transaction: t });
+                }
+            }));
         }
 
-        const newQualification = await Qualification.create({
-            student_id, academic_load_id, lapso, nota, tipo_evaluacion
+        await t.commit();
+        return res.status(201).json({
+            status: 'success',
+            message: 'Calificación individual procesada correctamente.',
+            data: qualification
         });
 
-        return res.status(201).json({ status: "success", data: newQualification });
-    } catch (error) { next(error); }
+    } catch (error) {
+        await t.rollback();
+        console.error('Error en saveQualification:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error interno al registrar la calificación individual.'
+        });
+    }
 };
 
 // 2. MODIFICAR UNA SOLA NOTA (PUT /api/qualifications/:id)
-const updateQualification = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { nota, tipo_evaluacion } = req.body;
-
-        const qualification = await Qualification.findByPk(id);
-        if (!qualification) {
-            return res.status(404).json({ status: "error", message: "La calificación que intenta editar no existe." });
-        }
-
-        if (nota !== undefined) qualification.nota = nota;
-        if (tipo_evaluacion) qualification.tipo_evaluacion = tipo_evaluacion;
-
-        await qualification.save();
-        return res.status(200).json({ status: "success", message: "Calificación modificada exitosamente.", data: qualification });
-    } catch (error) { next(error); }
-};
-
-// 3. CARGA MASIVA DE PLANILLA CON UPSERT BLINDADO (POST /api/qualifications/bulk)
-const saveBulkQualifications = async (req, res, next) => {
+const updateQualification = async (req, res) => {
     const t = await sequelize.transaction();
     try {
-        const { academic_load_id, lapso, tipo_evaluacion, notas } = req.body;
+        const { id } = req.params; // ID de la calificación a modificar
+        // req.body validado parcialmente por updateQualificationSchema
+        const { notas_parciales, ...updateData } = req.body;
 
-        const academicLoad = await AcademicLoad.findByPk(academic_load_id, { transaction: t });
-        if (!academicLoad) {
+        // 1. Buscar que la calificación exista
+        const qualification = await Qualification.findByPk(id);
+        if (!qualification) {
             await t.rollback();
-            return res.status(404).json({ status: "error", message: "La carga académica no existe." });
+            return res.status(404).json({
+                status: 'error',
+                message: 'La calificación especificada no existe.'
+            });
         }
 
-        const resultados = [];
+        // 2. Actualizar los campos de la cabecera si vienen en el body
+        await qualification.update(updateData, { transaction: t });
 
-        for (const item of notas) {
-            const { student_id, nota } = item;
-
-            // 🔒 CANDADO MASIVO: Verificamos inscripción activa por cada alumno del lote
-            const isEnrolled = await Registration.findOne({
-                where: {
-                    student_id,
-                    section_id: academicLoad.section_id
-                },
-                transaction: t
-            });
-            
-            if (!isEnrolled) {
-                // Si uno solo del lote falla, la transacción cancela TODO el paquete de la secretaria
-                await t.rollback();
-                return res.status(400).json({ 
-                    status: "error", 
-                    message: `El estudiante con ID ${student_id} no está inscrito formalmente en la sección de esta planilla.` 
+        // 3. Actualizar notas parciales específicas si se requiere
+        if (notas_parciales && notas_parciales.length > 0) {
+            await Promise.all(notas_parciales.map(async (p) => {
+                const [detail, detailCreated] = await EvaluationDetail.findOrCreate({
+                    where: { 
+                        qualification_id: qualification.id, 
+                        numero_evaluacion: p.numero_evaluacion 
+                    },
+                    defaults: { nota: p.nota },
+                    transaction: t
                 });
-            }
 
-            // Lógica de Upsert (Actualiza o crea)
-            const existingQualification = await Qualification.findOne({
-                where: { student_id, academic_load_id, lapso },
-                transaction: t
-            });
-
-            if (existingQualification) {
-                existingQualification.nota = nota;
-                if (tipo_evaluacion) existingQualification.tipo_evaluacion = tipo_evaluacion;
-                await existingQualification.save({ transaction: t });
-                resultados.push(existingQualification);
-            } else {
-                const newQualification = await Qualification.create({
-                    student_id, academic_load_id, lapso, nota, tipo_evaluacion: tipo_evaluacion || 'continua'
-                }, { transaction: t });
-                resultados.push(newQualification);
-            }
+                if (!detailCreated) {
+                    await detail.update({ nota: p.nota }, { transaction: t });
+                }
+            }));
         }
 
         await t.commit();
         return res.status(200).json({
-            status: "success",
-            message: `Planilla procesada: ${resultados.length} calificaciones sincronizadas con éxito.`,
-            data: resultados
+            status: 'success',
+            message: 'Calificación actualizada con éxito.'
         });
+
     } catch (error) {
         await t.rollback();
-        next(error);
+        console.error('Error en updateQualification:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error interno al actualizar la calificación.'
+        });
+    }
+};
+
+// 3. CARGA MASIVA DE PLANILLA CON UPSERT BLINDADO (POST /api/qualifications/bulk)
+const saveBulkQualifications = async (req, res) => {
+    // Iniciamos una transacción para asegurar consistencia atómica
+    const t = await sequelize.transaction();
+    
+    try {
+        // Obtenemos los campos validados por tu esquema Zod desde req.body
+        const { academic_load_id, lapso, estudiantes } = req.body;
+
+        // Procesamos el lote de estudiantes concurrentemente dentro de la transacción
+        await Promise.all(estudiantes.map(async (est) => {
+            const { 
+                student_id, 
+                calificacion_final, 
+                puntos_ajuste, 
+                puntos_extracatedra, 
+                clausula_aplicada, 
+                nota_definitiva, 
+                observaciones,
+                notas_parciales // Arreglo opcional con las 5 notas [ { numero_evaluacion: 1, nota: 14 }, ... ]
+            } = est;
+
+            // 1. Guardar o actualizar la cabecera de la calificación (Upsert)
+            // Si ya existe la fila para ese alumno/materia/lapso, la actualiza; si no, la crea.
+            const [qualification, created] = await Qualification.findOrCreate({
+                where: { student_id, academic_load_id, lapso },
+                defaults: {
+                    calificacion_final,
+                    puntos_ajuste,
+                    puntos_extracatedra,
+                    clausula_aplicada,
+                    nota_definitiva,
+                    observaciones
+                },
+                transaction: t
+            });
+
+            if (!created) {
+                // Si ya existía, aplicamos los nuevos cambios decididos en el Consejo
+                await qualification.update({
+                    calificacion_final,
+                    puntos_ajuste,
+                    puntos_extracatedra,
+                    clausula_aplicada,
+                    nota_definitiva,
+                    observaciones
+                }, { transaction: t });
+            }
+
+            // 2. Guardar el desglose de las 5 notas parciales si vienen en la petición
+            if (notas_parciales && notas_parciales.length > 0) {
+                await Promise.all(notas_parciales.map(async (p) => {
+                    const [detail, detailCreated] = await EvaluationDetail.findOrCreate({
+                        where: { 
+                            qualification_id: qualification.id, 
+                            numero_evaluacion: p.numero_evaluacion 
+                        },
+                        defaults: { nota: p.nota },
+                        transaction: t
+                    });
+
+                    if (!detailCreated) {
+                        await detail.update({ nota: p.nota }, { transaction: t });
+                    }
+                }));
+            }
+        }));
+
+        // Si todo el lote se procesó de forma perfecta, consolidamos los cambios en PostgreSQL
+        await t.commit();
+
+        return res.status(200).json({
+            status: 'success',
+            message: 'Acta de Consejo de Sección guardada e instrumentada exitosamente en el sistema.'
+        });
+
+    } catch (error) {
+        // Si algo falla, deshacemos absolutamente todo para proteger la integridad de los datos
+        await t.rollback();
+        console.error('Error en saveBulkQualifications:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error interno al procesar el lote de calificaciones. No se guardó ningún cambio.'
+        });
+    }
+};
+
+// backend/src/controllers/qualificationsController.js
+const getSectionQualifications = async (req, res) => {
+    try {
+        const { academic_load_id, lapso } = req.params;
+
+        // 1. Verificar que la carga académica exista y obtener su sección
+        const academicLoad = await AcademicLoad.findByPk(academic_load_id);
+        if (!academicLoad) {
+            return res.status(404).json({
+                status: 'error',
+                message: 'La carga académica especificada no existe.'
+            });
+        }
+
+        const section_id = academicLoad.section_id;
+
+        // 2. Traer la nómina de estudiantes inscritos en esta sección (ordenados alfabéticamente)
+        const enrolledStudents = await Registration.findAll({
+            where: { section_id },
+            include: [{
+                model: Student,
+                attributes: ['id', 'cedula', 'nombre', 'apellido'] // Ajusta según tus campos de Student
+            }],
+            order: [[Student, 'cedula', 'ASC']]
+        });
+
+        // 3. Procesar cada estudiante para armar la sábana con el historial analizado
+        const rows = await Promise.all(enrolledStudents.map(async (reg) => {
+            const student = reg.Student;
+
+            // A. Buscar si ya existen calificaciones guardadas para este estudiante EN EL LAPSO ACTUAL
+            const currentQualification = await Qualification.findOne({
+                where: {
+                    student_id: student.id,
+                    academic_load_id,
+                    lapso
+                },
+                include: [{
+                    model: EvaluationDetail,
+                    as: 'detalles',
+                    order: [['numero_evaluacion', 'ASC']]
+                }]
+            });
+
+            // B. EL CANDADO ANUAL: Calcular puntos consumidos en LAPSOS ANTERIORES en esta misma materia
+            // Buscamos registros donde el lapso sea diferente (menor) al consultado
+            const pastQualifications = await Qualification.findAll({
+                where: {
+                    student_id: student.id,
+                    academic_load_id,
+                    lapso: { [Op.ne]: lapso } // Evitamos el lapso actual para calcular el histórico acumulado
+                }
+            });
+
+            let puntosAjusteConsumidosAnual = 0;
+            let puntosExtracatedraConsumidosAnual = 0;
+            let fueAjustadaEnLapsoPasado = false;
+
+            pastQualifications.forEach(q => {
+                puntosAjusteConsumidosAnual += parseInt(q.puntos_ajuste || 0);
+                puntosExtracatedraConsumidosAnual += parseInt(q.puntos_extracatedra || 0);
+                
+                // Si ya se aplicó algún incentivo en lapsos anteriores, se activa la alerta de la Resolución 35
+                if (q.puntos_ajuste > 0 || q.puntos_extracatedra > 0 || q.clausula_aplicada === 'literal_9') {
+                    fueAjustadaEnLapsoPasado = true;
+                }
+            });
+
+            const totalIncentivosAnuales = puntosAjusteConsumidosAnual + puntosExtracatedraConsumidosAnual;
+            // El reglamento dicta un máximo de 2 puntos por asignatura en todo el año escolar (Excepto Literal 13)
+            const materia_bloqueada_anual = totalIncentivosAnuales >= 2 || fueAjustadaEnLapsoPasado;
+
+            // C. Estructurar la respuesta limpia para el Frontend en Nuxt 3
+            return {
+                student_id: student.id,
+                first_name: student.first_name,
+                last_name: student.last_name,
+                id_card: student.id_card,
+                // Datos del lapso actual (si no existen, enviamos valores por defecto vacíos)
+                qualification_id: currentQualification ? currentQualification.id : null,
+                calificacion_final: currentQualification ? parseFloat(currentQualification.calificacion_final) : 0.00,
+                puntos_ajuste: currentQualification ? currentQualification.puntos_ajuste : 0,
+                puntos_extracatedra: currentQualification ? currentQualification.puntos_extracatedra : 0,
+                clausula_aplicada: currentQualification ? currentQualification.clausula_aplicada : 'ninguna',
+                nota_definitiva: currentQualification ? parseFloat(currentQualification.nota_definitiva) : 0.00,
+                observaciones: currentQualification ? currentQualification.observaciones : '',
+                // Arreglo mapeado de las 5 notas parciales para los inputs de la cuadrícula
+                notas_parciales: currentQualification && currentQualification.detalles ? 
+                    currentQualification.detalles.map(d => ({
+                        numero_evaluacion: d.numero_evaluacion,
+                        nota: parseFloat(d.nota)
+                    })) : [],
+                // Metadatos de control institucional que leerá Nuxt 3 para deshabilitar los selectores
+                control_anual: {
+                    puntos_consumidos: totalIncentivosAnuales,
+                    puntos_disponibles_restantes: Math.max(0, 2 - totalIncentivosAnuales),
+                    materia_bloqueada_anual // true si ya gastó sus oportunidades anuales en esta materia
+                }
+            };
+        }));
+
+        return res.status(200).json({
+            status: 'success',
+            data: {
+                academic_load_id,
+                lapso,
+                nomina: rows
+            }
+        });
+
+    } catch (error) {
+        console.error('Error en getSectionQualifications:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error interno del servidor al procesar las calificaciones de la sección.'
+        });
     }
 };
 
 module.exports = {
     saveQualification,
     updateQualification,
-    saveBulkQualifications
+    saveBulkQualifications,
+    getSectionQualifications
 };

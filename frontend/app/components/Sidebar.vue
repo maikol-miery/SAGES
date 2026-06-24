@@ -36,7 +36,7 @@ const todosLosEnlaces = [
     {
       label: 'Calificaciones',
       icon: 'i-heroicons-star',
-      to: '/dashboard/calificaciones',
+      to: '/calificaciones',
       rolesPermitidos: ['admin', 'secretaria']
     }
   ]

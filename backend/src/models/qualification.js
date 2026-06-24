@@ -7,27 +7,47 @@ const Qualification = sequelize.define('Qualification', {
         defaultValue: DataTypes.UUIDV4,
         primaryKey: true
     },
-    nota: {
-        type: DataTypes.DECIMAL(4, 2), 
+    lapso: {
+        type: DataTypes.STRING, // Mantenemos STRING para tus tres momentos ("I", "II", "III")
+        allowNull: false
+    },
+    calificacion_final: {
+        type: DataTypes.DECIMAL(4, 2),
         allowNull: false,
+        defaultValue: 0.00 // Promedio puro de las evaluaciones parciales (1 al 5)
+    },
+    puntos_ajuste: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    puntos_extracatedra: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    },
+    clausula_aplicada: {
+        type: DataTypes.ENUM('ninguna', 'extracatedra', 'literal_9', 'literal_13'),
+        allowNull: false,
+        defaultValue: 'ninguna'
+    },
+    nota_definitiva: {
+        type: DataTypes.DECIMAL(4, 2),
+        allowNull: false,
+        defaultValue: 0.00,
         validate: {
             min: 0,
             max: 20
         }
     },
-    lapso: {
-        type: DataTypes.STRING, // Los tres momentos del año escolar
-        allowNull: false
-    },
-    tipo_evaluacion: {
-        type: DataTypes.STRING, 
-        defaultValue: 'continua'
-    },
-    
+    observaciones: {
+        type: DataTypes.TEXT,
+        allowNull: true // Justificación obligatoria para auditorías del plantel
+    }
 }, {
-    tableName: 'calificaciones',
+    tableName: 'calificaciones', // Mantenemos tu nombre original de tabla
     timestamps: true,
-    underscored: true,
+    underscored: true, // Crucial para mantener la consistencia de tus FKs en la BD
     indexes: [
         {
             unique: true,

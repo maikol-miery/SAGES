@@ -11,6 +11,7 @@ const Staff = require('./Staff');
 const Registration = require('./Registration');
 const Qualification = require('./Qualification');
 const AcademicLoad = require('./AcademicLoad');
+const EvaluationDetail = require('./EvaluationDetail'); // 👈 IMPORTACIÓN AGREGADA
 
 // --- DEFINICIÓN DE RELACIONES ---
 
@@ -60,6 +61,11 @@ Qualification.belongsTo(Student, { foreignKey: 'student_id' });
 AcademicLoad.hasMany(Qualification, { foreignKey: 'academic_load_id' });
 Qualification.belongsTo(AcademicLoad, { foreignKey: 'academic_load_id' });
 
+// ⚖️ RELACIÓN: Calificación - Detalles de Evaluaciones Parciales (1:N)
+// Añadida para dar soporte a la auditoría de las 5 notas cortas exigidas por el plantel [cite: 17, 23]
+Qualification.hasMany(EvaluationDetail, { foreignKey: 'qualification_id', as: 'detalles', onDelete: 'CASCADE' });
+EvaluationDetail.belongsTo(Qualification, { foreignKey: 'qualification_id', as: 'calificacion' });
+
 
 // Exportar todo el objeto para usarlo en controladores
 module.exports = {
@@ -72,5 +78,6 @@ module.exports = {
     Staff, 
     Registration,
     Qualification,
-    AcademicLoad
+    AcademicLoad,
+    EvaluationDetail // 👈 EXPORTACIÓN AGREGADA
 };
