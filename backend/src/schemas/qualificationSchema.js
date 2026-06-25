@@ -26,7 +26,7 @@ const qualificationBodyObject = z.object({
         }, { message: "La calificación final solo puede tener hasta 2 decimales." }),
 
     puntos_ajuste: z.number().int().min(0).max(2, "Máximo 2 puntos de ajuste por promedio."),
-    puntos_extracatedra: z.number().int().min(0).max(2, "Máximo 2 puntos por actividades extracátedra."),
+    puntos_extracatedra: z.number().int().min(0).max(4, "Máximo 4 puntos extra."),
     
     clausula_aplicada: z.string()
         .trim()
@@ -71,13 +71,32 @@ const createBulkQualificationsSchema = z.object({
         
         estudiantes: z.array(
             z.object({
-                student_id: qualificationBodyObject.shape.student_id,
-                calificacion_final: qualificationBodyObject.shape.calificacion_final,
-                puntos_ajuste: qualificationBodyObject.shape.puntos_ajuste,
+                student_id:          qualificationBodyObject.shape.student_id,
+                calificacion_final:  qualificationBodyObject.shape.calificacion_final,
+                puntos_ajuste:       qualificationBodyObject.shape.puntos_ajuste,
                 puntos_extracatedra: qualificationBodyObject.shape.puntos_extracatedra,
-                clausula_aplicada: qualificationBodyObject.shape.clausula_aplicada,
-                nota_definitiva: qualificationBodyObject.shape.nota_definitiva,
-                observaciones: qualificationBodyObject.shape.observaciones
+                clausula_aplicada:   qualificationBodyObject.shape.clausula_aplicada,
+                nota_definitiva:     qualificationBodyObject.shape.nota_definitiva,
+                observaciones:       qualificationBodyObject.shape.observaciones,
+                
+                // 🚀 MATRIZ DE NOTAS PARCIALES COMPATIBLE CON EL FRONTEND:
+                notas_parciales: z.array(
+                    z.object({
+                        numero_evaluacion: z.number().int().min(1).max(5),
+                        // Acepta números válidos (0-20), strings vacíos "" o valores nulos
+                        nota: z.union([
+                            // Si viene un string con número (ej: "14"), lo convierte y lo valida
+                            z.preprocess(
+                                (val) => (val === '' || val === null || val === undefined) ? undefined : Number(val), 
+                                z.number().min(0, "Mínimo 0").max(20, "Máximo 20")
+                            ),
+                            // Si viene vacío "" porque no se evaluó el corte, pasa limpio
+                            z.literal(''),
+                            // Si viene nulo desde la base de datos
+                            z.null()
+                        ]).optional()
+                    })
+                ).optional() // Se deja opcional por si una fila completa no tiene notas asignadas
             })
         ).nonempty({
             message: "El listado de calificaciones del consejo no puede estar vacío."

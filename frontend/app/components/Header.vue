@@ -13,7 +13,8 @@ const titulosPaginas = {
   '/dashboard/personal': 'Gestión de Personal',
   '/dashboard/estudiantes': 'Control de Estudiantes',
   '/dashboard/carga-academica': 'Carga Académica',
-  '/dashboard/calificaciones': 'Control de Calificaciones',
+  '/calificaciones': 'Control de Calificaciones',
+  '/calificaciones/carga-seccion': 'Calificaciones / Carga Por Sección',
   '/dashboard/perfil': 'Mi Perfil'
 }
 

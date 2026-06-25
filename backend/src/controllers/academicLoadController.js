@@ -233,9 +233,37 @@ const deleteAcademicLoad = async (req, res) => {
   }
 };
 
+const getLoadBySection = async (req, res) => {
+    const { section_id } = req.params;
+    try {
+        const load = await AcademicLoad.findAll({
+            where: { section_id },
+            include: [
+                {
+                    model: Subject,
+                    attributes: ['id', 'nombre', 'abreviatura', 'tipo_evaluacion']
+                }
+            ],
+            order: [[Subject, 'nombre', 'ASC']]
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            data: load
+        });
+    } catch (error) {
+        console.error('Error en getLoadBySection:', error);
+        return res.status(500).json({
+            status: 'error',
+            msg: 'Error interno al obtener las materias de la sección.'
+        });
+    }
+};
+
 module.exports = {
     assignTeacher, // Mantenemos el nombre de exportación intacto para no romper tus archivos de rutas
     getAcademicLoads,
     updateAcademicLoad,
-    deleteAcademicLoad
+    deleteAcademicLoad,
+    getLoadBySection
 };

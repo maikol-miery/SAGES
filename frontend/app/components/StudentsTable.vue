@@ -1,6 +1,8 @@
 <script setup>
 import { ref, h, resolveComponent, watch, onMounted } from 'vue'
 
+const { refreshCounter } = useStudentRefresh()
+
 // Componentes de Nuxt UI v3 mapeados para el renderizado de celdas
 const UBadge = resolveComponent('UBadge')
 const UButton = resolveComponent('UButton')
@@ -209,6 +211,11 @@ const cargarEstudiantes = async () => {
 
 watch([search, page, selectedYear, selectedSection, selectedStatus], () => {
   cargarEstudiantes()
+})
+
+watch(refreshCounter, async () => {
+  console.log("Detectado nuevo estudiante desde el sidebar. Recargando tabla...")
+  await cargarEstudiantes() // Ejecuta el HTTP GET de nuevo en segundo plano de forma nativa
 })
 
 onMounted(() => {

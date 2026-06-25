@@ -138,9 +138,7 @@ const updateQualification = async (req, res) => {
 const saveBulkQualifications = async (req, res) => {
     // Iniciamos una transacción para asegurar consistencia atómica
     const t = await sequelize.transaction();
-    
     try {
-        // Obtenemos los campos validados por tu esquema Zod desde req.body
         const { academic_load_id, lapso, estudiantes } = req.body;
 
         // Procesamos el lote de estudiantes concurrentemente dentro de la transacción
@@ -153,50 +151,65 @@ const saveBulkQualifications = async (req, res) => {
                 clausula_aplicada, 
                 nota_definitiva, 
                 observaciones,
-                notas_parciales // Arreglo opcional con las 5 notas [ { numero_evaluacion: 1, nota: 14 }, ... ]
+                notas_parciales 
             } = est;
 
             // 1. Guardar o actualizar la cabecera de la calificación (Upsert)
-            // Si ya existe la fila para ese alumno/materia/lapso, la actualiza; si no, la crea.
             const [qualification, created] = await Qualification.findOrCreate({
                 where: { student_id, academic_load_id, lapso },
                 defaults: {
-                    calificacion_final,
-                    puntos_ajuste,
-                    puntos_extracatedra,
+                    calificacion_final: Number(calificacion_final),
+                    puntos_ajuste: Number(puntos_ajuste),
+                    puntos_extracatedra: Number(puntos_extracatedra),
                     clausula_aplicada,
-                    nota_definitiva,
-                    observaciones
+                    nota_definitiva: Number(nota_definitiva),
+                    observaciones: observaciones || null
                 },
                 transaction: t
             });
 
             if (!created) {
-                // Si ya existía, aplicamos los nuevos cambios decididos en el Consejo
                 await qualification.update({
-                    calificacion_final,
-                    puntos_ajuste,
-                    puntos_extracatedra,
+                    calificacion_final: Number(calificacion_final),
+                    puntos_ajuste: Number(puntos_ajuste),
+                    puntos_extracatedra: Number(puntos_extracatedra),
                     clausula_aplicada,
-                    nota_definitiva,
-                    observaciones
+                    nota_definitiva: Number(nota_definitiva),
+                    observaciones: observaciones || null
                 }, { transaction: t });
             }
 
-            // 2. Guardar el desglose de las 5 notas parciales si vienen en la petición
+            // 2. Guardar el desglose de las notas parciales
             if (notas_parciales && notas_parciales.length > 0) {
                 await Promise.all(notas_parciales.map(async (p) => {
+                    
+                    // 🚨 CONTROL DE CONTROL: Si la nota está vacía, nula o indefinida, limpiamos Postgres
+                    if (p.nota === '' || p.nota === null || p.nota === undefined) {
+                        // Si ya existía una nota guardada ahí y el profesor la borró, la eliminamos
+                        await EvaluationDetail.destroy({
+                            where: { 
+                                qualification_id: qualification.id, 
+                                numero_evaluacion: p.numero_evaluacion 
+                            },
+                            transaction: t
+                        });
+                        return; // Saltamos este registro para que NUNCA llegue un string vacío a Postgres
+                    }
+
+                    // Aseguramos que el valor final sea un número puro antes de pasarlo a Sequelize
+                    const notaNumerica = Number(p.nota);
+
                     const [detail, detailCreated] = await EvaluationDetail.findOrCreate({
                         where: { 
                             qualification_id: qualification.id, 
                             numero_evaluacion: p.numero_evaluacion 
                         },
-                        defaults: { nota: p.nota },
+                        defaults: { nota: notaNumerica },
                         transaction: t
                     });
 
                     if (!detailCreated) {
-                        await detail.update({ nota: p.nota }, { transaction: t });
+                        await detail.update({ nota: notaNumerica }, { transaction: t });
                     }
                 }));
             }
@@ -204,7 +217,6 @@ const saveBulkQualifications = async (req, res) => {
 
         // Si todo el lote se procesó de forma perfecta, consolidamos los cambios en PostgreSQL
         await t.commit();
-
         return res.status(200).json({
             status: 'success',
             message: 'Acta de Consejo de Sección guardada e instrumentada exitosamente en el sistema.'
@@ -213,14 +225,16 @@ const saveBulkQualifications = async (req, res) => {
     } catch (error) {
         // Si algo falla, deshacemos absolutamente todo para proteger la integridad de los datos
         await t.rollback();
-        console.error('Error en saveBulkQualifications:', error);
+        console.error('Error crítico en saveBulkQualifications:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Error interno al procesar el lote de calificaciones. No se guardó ningún cambio.'
+            message: 'Error interno al procesar el lote de calificaciones. No se guardó ningún cambio.',
+            error: error.message
         });
     }
 };
 
+// backend/src/controllers/qualificationsController.js
 // backend/src/controllers/qualificationsController.js
 const getSectionQualifications = async (req, res) => {
     try {
@@ -237,14 +251,16 @@ const getSectionQualifications = async (req, res) => {
 
         const section_id = academicLoad.section_id;
 
-        // 2. Traer la nómina de estudiantes inscritos en esta sección (ordenados alfabéticamente)
+        // 2. Traer la nómina de estudiantes inscritos en esta sección
         const enrolledStudents = await Registration.findAll({
             where: { section_id },
             include: [{
                 model: Student,
-                attributes: ['id', 'cedula', 'nombre', 'apellido'] // Ajusta según tus campos de Student
+                // 🔥 Aseguramos que los atributos coincidan exactamente con tu modelo real
+                attributes: ['id', 'cedula', 'nombre', 'apellido'] 
             }],
-            order: [[Student, 'cedula', 'ASC']]
+            // 🔥 Corrección del ordenamiento para que Sequelize no reviente con el modelo incluido
+            order: [[{ model: Student }, 'cedula', 'ASC']]
         });
 
         // 3. Procesar cada estudiante para armar la sábana con el historial analizado
@@ -265,13 +281,12 @@ const getSectionQualifications = async (req, res) => {
                 }]
             });
 
-            // B. EL CANDADO ANUAL: Calcular puntos consumidos en LAPSOS ANTERIORES en esta misma materia
-            // Buscamos registros donde el lapso sea diferente (menor) al consultado
+            // B. EL CANDADO ANUAL: Calcular puntos consumidos en LAPSOS ANTERIORES
             const pastQualifications = await Qualification.findAll({
                 where: {
                     student_id: student.id,
                     academic_load_id,
-                    lapso: { [Op.ne]: lapso } // Evitamos el lapso actual para calcular el histórico acumulado
+                    lapso: { [Op.ne]: lapso }
                 }
             });
 
@@ -283,23 +298,22 @@ const getSectionQualifications = async (req, res) => {
                 puntosAjusteConsumidosAnual += parseInt(q.puntos_ajuste || 0);
                 puntosExtracatedraConsumidosAnual += parseInt(q.puntos_extracatedra || 0);
                 
-                // Si ya se aplicó algún incentivo en lapsos anteriores, se activa la alerta de la Resolución 35
                 if (q.puntos_ajuste > 0 || q.puntos_extracatedra > 0 || q.clausula_aplicada === 'literal_9') {
                     fueAjustadaEnLapsoPasado = true;
                 }
             });
 
             const totalIncentivosAnuales = puntosAjusteConsumidosAnual + puntosExtracatedraConsumidosAnual;
-            // El reglamento dicta un máximo de 2 puntos por asignatura en todo el año escolar (Excepto Literal 13)
             const materia_bloqueada_anual = totalIncentivosAnuales >= 2 || fueAjustadaEnLapsoPasado;
 
             // C. Estructurar la respuesta limpia para el Frontend en Nuxt 3
             return {
                 student_id: student.id,
-                first_name: student.first_name,
-                last_name: student.last_name,
-                id_card: student.id_card,
-                // Datos del lapso actual (si no existen, enviamos valores por defecto vacíos)
+                // 🔥 CORRECCIÓN AQUÍ: Mapeamos usando las propiedades reales que extraes del Student ('cedula', 'nombre', 'apellido')
+                first_name: student.nombre,
+                last_name: student.apellido,
+                id_card: student.cedula,
+                
                 qualification_id: currentQualification ? currentQualification.id : null,
                 calificacion_final: currentQualification ? parseFloat(currentQualification.calificacion_final) : 0.00,
                 puntos_ajuste: currentQualification ? currentQualification.puntos_ajuste : 0,
@@ -307,17 +321,17 @@ const getSectionQualifications = async (req, res) => {
                 clausula_aplicada: currentQualification ? currentQualification.clausula_aplicada : 'ninguna',
                 nota_definitiva: currentQualification ? parseFloat(currentQualification.nota_definitiva) : 0.00,
                 observaciones: currentQualification ? currentQualification.observaciones : '',
-                // Arreglo mapeado de las 5 notas parciales para los inputs de la cuadrícula
+                
                 notas_parciales: currentQualification && currentQualification.detalles ? 
                     currentQualification.detalles.map(d => ({
                         numero_evaluacion: d.numero_evaluacion,
                         nota: parseFloat(d.nota)
                     })) : [],
-                // Metadatos de control institucional que leerá Nuxt 3 para deshabilitar los selectores
+                    
                 control_anual: {
                     puntos_consumidos: totalIncentivosAnuales,
                     puntos_disponibles_restantes: Math.max(0, 2 - totalIncentivosAnuales),
-                    materia_bloqueada_anual // true si ya gastó sus oportunidades anuales en esta materia
+                    materia_bloqueada_anual
                 }
             };
         }));

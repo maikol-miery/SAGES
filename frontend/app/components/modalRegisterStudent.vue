@@ -1,7 +1,8 @@
 <script setup>
 import { z } from 'zod'
 
-const emit = defineEmits(['close', 'success'])
+const emit = defineEmits(['close'])
+const { triggerRefresh } = useStudentRefresh()
 
 const loading = ref(false)
 const currentStep = ref(0)
@@ -83,8 +84,8 @@ const onSubmit = async () => {
     const response = await useApi('/registrations', { method: 'POST', body: state })
     if (response?.status === 'success') {
       toast.add({ title: '¡Éxito!', description: 'Estudiante inscrito correctamente.', color: 'success' })
+      triggerRefresh()
       emit('close')
-      emit('success')
       currentStep.value = 0
     }
   } catch (error) {
