@@ -242,6 +242,13 @@ const getLoadBySection = async (req, res) => {
                 {
                     model: Subject,
                     attributes: ['id', 'nombre', 'abreviatura', 'tipo_evaluacion']
+                },
+                // NUEVO BLOQUE: Incluimos los datos del profesor asignado a esa carga
+                {
+                    model: Staff, // ⚠️ Ajusta este nombre si tu modelo se llama Docente, Teacher, etc.
+                    attributes: ['id', 'nombre', 'apellido', 'cedula'],
+                    // Si tienes un alias en la relación (ej. as: 'docente'), agrégalo aquí:
+                    as: 'docente' 
                 }
             ],
             order: [[Subject, 'nombre', 'ASC']]

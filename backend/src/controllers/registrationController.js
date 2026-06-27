@@ -6,87 +6,95 @@ const { Op } = require('sequelize');
 
 const getAllRegistrations = async (req, res) => {
     try {
-        // 1. Capturamos los parámetros de paginación y filtros que envía el frontend
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 5;
-        const offset = (page - 1) * limit;
-
-        const { search, year, section, status } = req.query;
+        // 1. Capturamos los parámetros que envía el frontend
+        // Agregamos section_id para capturar el UUID directo si se requiere para reportes o sábanas
+        const { search, year, section, status, section_id } = req.query;
 
         // 2. Inicializamos los bloques de condiciones dinámicas vacíos
         let studentWhere = {};
         let sectionWhere = {};
 
-        // 🔍 FILTRO DE TEXTO: Búsqueda global (Cédula, Nombre, Apellido)
-        if (search && search.trim() !== '') {
-            studentWhere[Op.or] = [
-                { cedula: { [Op.iLike]: `%${search.trim()}%` } },
-                { nombre: { [Op.iLike]: `%${search.trim()}%` } },
-                { apellido: { [Op.iLike]: `%${search.trim()}%` } }
-            ];
+        // 🛠️ MODO REPORTE/SÁBANA: Si viene section_id, ignoramos los filtros de texto o combos generales
+        if (section_id && section_id.trim() !== '') {
+            sectionWhere.id = section_id;
+        } else {
+            // MODO LISTADO COMÚN: Se ejecutan tus filtros tradicionales si NO hay section_id
+            
+            // 🔍 FILTRO DE TEXTO: Búsqueda global (Cédula, Nombre, Apellido)
+            if (search && search.trim() !== '') {
+                studentWhere[Op.or] = [
+                    { cedula: { [Op.iLike]: `%${search.trim()}%` } },
+                    { nombre: { [Op.iLike]: `%${search.trim()}%` } },
+                    { apellido: { [Op.iLike]: `%${search.trim()}%` } }
+                ];
+            }
+
+            // 🎯 FILTRO DE ESTATUS
+            if (status && status !== 'Todos' && status.trim() !== '') {
+                studentWhere.estado = status.toLowerCase(); 
+            }
+
+            // 🎯 FILTRO DE AÑO (Grado)
+            if (year && year !== 'Todos' && year.trim() !== '') {
+                sectionWhere.grado = year.trim().charAt(0); 
+            }
+
+            // 🎯 FILTRO DE SECCIÓN (Letra)
+            if (section && section !== 'Todas' && section.trim() !== '') {
+                sectionWhere.seccion = section.toUpperCase().trim();
+            }
         }
 
-        // 🎯 FILTRO DE ESTATUS: Se ejecuta solo si es diferente a 'Todos' y no viene vacío
-        if (status && status !== 'Todos' && status.trim() !== '') {
-            // Se pasa a minúsculas porque tu base de datos almacena 'activo', 'retirado', etc.
-            studentWhere.estado = status.toLowerCase(); 
-        }
+        // 3. PAGINACIÓN CONDICIONAL: Si viene section_id no limitamos el resultado (trae la sección entera)
+        const isReportMode = !!(section_id && section_id.trim() !== '');
+        
+        const page = parseInt(req.query.page) || 1;
+        const limit = isReportMode ? null : (parseInt(req.query.limit) || 5);
+        const offset = isReportMode ? null : ((page - 1) * limit);
 
-        // 🎯 FILTRO DE AÑO: Convierte el texto "1er Año", "2do Año" al formato numérico de tu base de datos
-        if (year && year !== 'Todos' && year.trim() !== '') {
-            // Si viene "1er Año", charAt(0) extrae exactamente "1"
-            sectionWhere.grado = year.trim().charAt(0); 
-        }
-
-        // 🎯 FILTRO DE SECCIÓN: Se ejecuta solo si selecciona una sección real (A, B, C...)
-        if (section && section !== 'Todas' && section.trim() !== '') {
-            sectionWhere.seccion = section.toUpperCase().trim();
-        }
-
-        // 3. Ejecutamos la consulta relacional con conteo estricto y paginación
+        // 4. Ejecutamos la consulta relacional con Sequelize
         const { count, rows } = await Registration.findAndCountAll({
-            distinct: true, // Evita duplicados en el conteo debido a los múltiples JOINs con PostgreSQL
-            limit: limit,
-            offset: offset,
+            distinct: true, 
+            ...(limit !== null && { limit }),
+            ...(offset !== null && { offset }),
             include: [
                 {
                     model: Section,
                     attributes: ['id', 'grado', 'seccion', 'anio_escolar'],
+                    // Si el objeto de condiciones tiene filtros aplicados, los añade
                     ...(Object.keys(sectionWhere).length > 0 && { where: sectionWhere })
                 },
                 {
                     model: Student,
-                    // 🛠️ AGREGAMOS: fechaNacimiento, genero y direccion
                     attributes: ['id', 'cedula', 'nombre', 'apellido', 'estado', 'createdAt', 'fecha_nacimiento', 'genero', 'direccion'],
                     ...(Object.keys(studentWhere).length > 0 && { where: studentWhere }),
                     include: [
                         {
                             model: Representative,
                             as: 'Representative',
-                            // 🛠️ AGREGAMOS: telefono
                             attributes: ['id', 'nombre', 'apellido', 'cedula', 'telefono']
                         }
                     ]
                 }
             ],
-            // Ordenación alfabética por el apellido del estudiante
+            // Ordenación alfabética estricta para el formato oficial
             order: [[Student, 'apellido', 'ASC']]
         });
 
-        // 4. Retornamos la respuesta estructurada bajo tu estándar de paginación
+        // 5. Retornamos la respuesta estructurada respetando el estándar
         return res.status(200).json({
             status: 'success',
             totalItems: count,
-            totalPages: Math.ceil(count / limit),
-            currentPage: page,
+            totalPages: isReportMode ? 1 : Math.ceil(count / limit),
+            currentPage: isReportMode ? 1 : page,
             data: rows
         });
 
     } catch (error) {
-        console.error('Error al obtener inscripciones paginadas en SAGES:', error);
+        console.error('Error al obtener inscripciones en SAGES:', error);
         return res.status(500).json({
             status: 'error',
-            message: 'Error al obtener el listado académico paginado',
+            message: 'Error al obtener el listado académico',
             error: error.message
         });
     }

@@ -8,7 +8,7 @@ const Qualification = sequelize.define('Qualification', {
         primaryKey: true
     },
     lapso: {
-        type: DataTypes.STRING, // Mantenemos STRING para tus tres momentos ("I", "II", "III")
+        type: DataTypes.STRING, 
         allowNull: false
     },
     calificacion_final: {

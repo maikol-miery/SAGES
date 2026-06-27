@@ -1,4 +1,4 @@
-const { Qualification, AcademicLoad, Student, Registration, EvaluationDetail, sequelize } = require('../models');
+const { Qualification, AcademicLoad, Student, Registration, EvaluationDetail, Subject, Staff, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // 1. REGISTRAR UNA SOLA NOTA (POST /api/qualifications)
@@ -354,9 +354,37 @@ const getSectionQualifications = async (req, res) => {
     }
 };
 
+const getRawQualificationsBySection = async (req, res) => {
+    try {
+        const { section_id } = req.params;
+        
+        // 1. Buscamos los IDs de la carga académica asignada a la sección
+        const cargas = await AcademicLoad.findAll({ 
+            where: { section_id },
+            attributes: ['id']
+        });
+        const cargaIds = cargas.map(c => c.id);
+
+        // 2. Traemos las notas directas usando el array de IDs
+        const calificaciones = await Qualification.findAll({
+            where: { academic_load_id: cargaIds }
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            data: calificaciones
+        });
+    } catch (error) {
+        console.error('Error en getRawQualificationsBySection:', error);
+        return res.status(500).json({ status: 'error', message: error.message });
+    }
+};
+
+
 module.exports = {
     saveQualification,
     updateQualification,
     saveBulkQualifications,
-    getSectionQualifications
+    getSectionQualifications,
+    getRawQualificationsBySection
 };

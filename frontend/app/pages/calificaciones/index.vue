@@ -106,7 +106,7 @@ const descargarManual = () => {
             </UCard>
         </NuxtLink>
 
-        <NuxtLink to="resumen-global">
+        <NuxtLink to="calificaciones/resumen-global">
             <UCard 
             class="max-w-[420px] rounded-3xl h-80 cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-md group"
             :ui="{ 
