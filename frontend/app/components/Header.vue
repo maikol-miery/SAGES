@@ -70,6 +70,7 @@ const anioSeleccionado = useState('anio_escolar_activo', () => aniosEscolares[0]
           color="gray"
           variant="ghost"
           class="text-gray-500 hover:text-gray-700 hover:bg-gray-300 rounded-full"
+          to="/soporte"
         />
       </UTooltip>
       

@@ -11,7 +11,7 @@ const {
     changePasswordSchema,
     verifySecurityQuestionsSchema,
     resetPasswordSchema,
-    updateProfileSchema
+    updateProfileSchema,
 } = require('../schemas/userSchema');
 
 // --- RUTAS PÚBLICAS (No necesitan token) ---
@@ -21,11 +21,14 @@ router.post('/login', validateSchema(loginUserSchema), authController.login);
 // --- RUTAS PRIVADAS (Para Secretaria, Profesor o Admin) ---
 // Usamos authenticateToken para que solo pase quien haya hecho login
 router.put('/change-password', authenticateToken, validateSchema(changePasswordSchema), authController.changePassword);
-router.put('/profile', authenticateToken, validateSchema(updateProfileSchema), authController.updateProfile);
+router.put('/update-profile', authenticateToken, validateSchema(updateProfileSchema), authController.updateProfile);
 
 // --- RUTAS EXCLUSIVAS DE ADMIN ---
 // Aquí está la magia: exigimos token Y exigimos que el rol sea 'admin'
 router.post('/verify-questions', validateSchema(verifySecurityQuestionsSchema), authController.verifySecurityQuestions);
 router.post('/reset-password', validateSchema(resetPasswordSchema), authController.resetPassword);
+
+router.get('/me', authenticateToken, authController.getMe);
+
 
 module.exports = router;

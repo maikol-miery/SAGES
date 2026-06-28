@@ -1,5 +1,5 @@
 // backend/src/controllers/staffController.js
-const { Staff, User, sequelize } = require('../models');
+const { Staff, User, AcademicLoad, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
 // 1. CREAR PERSONAL (Con o sin cuenta de usuario integrada)
@@ -167,8 +167,140 @@ const updateStaff = async (req, res) => {
     }
 };
 
+const getStaffList = async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        
+        const { search, tipo_personal, estado, rol } = req.query;
+
+        // Inicializamos los bloques de condiciones vacíos
+        let staffWhere = {};
+        let userWhere = {};
+
+        // 1. FILTRO TIPO DE PERSONAL (docente / administrativo)
+        if (tipo_personal && tipo_personal.toUpperCase() !== 'TODOS' && tipo_personal.trim() !== '') {
+            staffWhere.tipo_personal = tipo_personal.toLowerCase();
+        }
+        
+        // 2. FILTRO ESTADO (activo / inactivo)
+        if (estado && estado.toUpperCase() !== 'TODOS' && estado.trim() !== '') {
+            staffWhere.estado = estado.toLowerCase();
+        }
+
+        // 3. BARRA DE BÚSQUEDA GLOBAL
+        if (search && search.trim() !== "") {
+            const cleanSearch = `%${search.trim()}%`;
+            staffWhere[Op.or] = [
+                { cedula: { [Op.iLike]: cleanSearch } },
+                { nombre: { [Op.iLike]: cleanSearch } },
+                { apellido: { [Op.iLike]: cleanSearch } },
+                { email: { [Op.iLike]: cleanSearch } }
+            ];
+        }
+
+        // 4. FILTRO DE ROL (Se aplica sobre el modelo User)
+        if (rol && rol.toUpperCase() !== 'TODOS' && rol.trim() !== '') {
+            userWhere.rol = rol.toLowerCase();
+        }
+
+        // Ejecutar consulta relacional estructurada
+        const { count, rows } = await Staff.findAndCountAll({
+            where: staffWhere,
+            limit,
+            offset,
+            order: [['apellido', 'ASC']],
+            include: [{
+                model: User,
+                as: 'cuenta',
+                // Si hay un filtro de rol específico, inyectamos el where al include
+                ...(Object.keys(userWhere).length > 0 && { where: userWhere }),
+                // Si busca un rol específico, required es true (INNER JOIN), si no false (LEFT JOIN)
+                required: (rol && rol.toUpperCase() !== 'TODOS') ? true : false, 
+                attributes: ['id', 'username', 'rol']
+            }]
+        });
+
+        return res.status(200).json({
+            status: 'success',
+            data: rows,
+            pagination: {
+                total: count,
+                page,
+                limit,
+                totalPages: Math.ceil(count / limit)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error al obtener la lista de personal:', error);
+        return res.status(500).json({
+            status: 'error',
+            message: 'Error interno del servidor.'
+        });
+    }
+};
+
+
+const deleteStaff = async (req, res) => {
+  const { id } = req.params; // ID del miembro del personal (Staff)
+
+  try {
+    // 1. Verificar si el miembro del personal existe
+    const staffMember = await Staff.findByPk(id);
+    if (!staffMember) {
+      return res.status(404).json({ 
+        status: 'error',
+        message: 'El miembro del personal especificado no existe en el sistema.' 
+      });
+    }
+
+    // 2. 🚨 CONTROL DE BORRADO ESTRICTO: Validar si tiene carga académica asociada
+    // Asumiendo que la clave foránea en AcademicLoad se llama 'staff_id' o 'docente_id' (ajústala si es necesario)
+    const hasAcademicLoad = await AcademicLoad.findOne({
+      where: { staff_id: id } 
+    });
+
+    if (hasAcademicLoad) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'este Docente pesee materias asiganadas.'
+      });
+    }
+
+    // 3. Verificamos si tiene una cuenta de usuario vinculada para limpiarla
+    const userAccount = await User.findOne({
+      where: { staff_id: id } // O el campo de relación invertida según tus modelos
+    });
+
+    // 4. Ejecutar el borrado definitivo de forma segura
+    if (userAccount) {
+      // Si tiene cuenta de acceso a SAGES, la removemos primero
+      await userAccount.destroy();
+    }
+
+    // Borrado físico del registro en la tabla Staff
+    await staffMember.destroy();
+
+    return res.status(200).json({
+      status: 'success',
+      message: `El registro de ${staffMember.nombre} ${staffMember.apellido} y sus accesos fueron removidos del sistema SAGES con éxito.`
+    });
+
+  } catch (error) {
+    console.error('Error en deleteStaff:', error);
+    return res.status(500).json({ 
+      status: 'error',
+      message: 'Error interno del servidor al intentar remover el registro de personal.' 
+    });
+  }
+};
+
 module.exports = {
     createStaff,
     getAllStaff,
-    updateStaff
+    updateStaff,
+    getStaffList,
+    deleteStaff
 };

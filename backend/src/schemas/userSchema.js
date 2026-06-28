@@ -102,20 +102,32 @@ const updateProfileSchema = z.object({
         nombre: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres.").optional(),
         apellido: z.string().trim().min(2, "El apellido debe tener al menos 2 caracteres.").optional(),
         email: z.string().email("Formato de correo inválido.").trim().optional(),
-        username: usernameRule.optional(), // Reutiliza tu validación de tamaño/caracteres para el cambio de nick
+        username: usernameRule.optional(), // Ya lo tienes contemplado aquí
         
+        // ✨ NUEVO: Añadimos el teléfono permitiendo strings vacíos del frontend
+        telefono: z.preprocess(emptyToUndefined, z.string().regex(/^[0-9+ \-]{10,20}$/, "Introduce un número de teléfono válido").optional()),
+        
+        // ✨ NUEVO: Añadimos las propiedades para el cambio de contraseña segura
+        passwordActual: z.preprocess(emptyToUndefined, z.string().optional()),
+        passwordNueva: z.preprocess(emptyToUndefined, passwordRule.optional()), // Reutiliza tu potente passwordRule
+
         // Transformamos vacíos en undefined para que el .optional() funcione sin chocar con campos vacíos de Nuxt 3
         question1: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         answer1: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         question2: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         answer2: z.preprocess(emptyToUndefined, z.string().trim().optional())
     }).superRefine((data, ctx) => {
-        // Validación cruzada relacional
+        // Validación cruzada relacional de preguntas existentes
         if (data.question1 && !data.answer1) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe responder a la pregunta de seguridad 1.", path: ["answer1"] });
         }
         if (data.question2 && !data.answer2) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe responder a la pregunta de seguridad 2.", path: ["answer2"] });
+        }
+
+        // ✨ NUEVA VALIDACIÓN CRUZADA: Si se envía una nueva contraseña, la actual pasa a ser obligatoria
+        if (data.passwordNueva && !data.passwordActual) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe proporcionar la contraseña actual para establecer una nueva.", path: ["passwordActual"] });
         }
     })
 });

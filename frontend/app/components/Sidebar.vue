@@ -122,7 +122,7 @@ const openRegistro = () => {
 
     <div class="border-t border-gray-100 pt-4 space-y-2">
       <NuxtLink 
-        to="/dashboard/perfil" 
+        to="/dashboard/mi-perfil" 
         class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition"
       >
         <UIcon name="i-heroicons-user-circle" class="w-5 h-5 text-gray-400" />
