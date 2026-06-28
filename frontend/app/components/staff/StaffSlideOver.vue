@@ -223,7 +223,7 @@ const open = (actionMode, data = null) => {
     formData.value.email        = data.email
     formData.value.telefono     = data.telefono || ''
     formData.value.tipo_personal = data.tipo_personal
-    formData.value.estado       = data.estado
+    formData.value.estado       = data.estado ?? 'activo';
 
     if (data.cuenta) {
       habilitarUsuario.value  = true
