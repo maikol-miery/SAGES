@@ -260,7 +260,7 @@ onMounted(() => {
         :loading="pending"
         :data="alumnos" 
         :columns="columns" 
-        class="w-full max-h-[340px]" 
+        class="w-full md:max-h-[50dvh] sm:max-h-[30dvh]" 
         :ui="{
             td: 'py-2',
             th: 'py-2',

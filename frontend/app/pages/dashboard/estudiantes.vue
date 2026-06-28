@@ -46,7 +46,9 @@ const pestañaActiva = ref('0')
     </template>
   </UTabs>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- METRICAS DE LOS ESTUDIANTES E INCRIPCIONES -->
+
+    <!-- <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="bg-white p-4 rounded-xl border border-gray-200 flex items-center gap-4 shadow-sm">
         <div class="p-3 bg-green-100 rounded-lg">
           <UIcon name="i-lucide-user-plus" class="text-green-600 size-6" />
@@ -87,6 +89,6 @@ const pestañaActiva = ref('0')
           class="mt-2 font-bold bg-white text-green-700 hover:bg-gray-100"
         />
       </div>
-    </div>
+    </div> -->
   </div>
 </template>

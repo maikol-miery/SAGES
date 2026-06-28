@@ -339,7 +339,9 @@ onMounted(() => {
         </UForm>
       </UCard>
 
-      <AcademicLoadMetrics />
+
+      <!-- METRICAS DE PROFESORES Y MATERIAS -->
+      <!-- <AcademicLoadMetrics /> -->
     </div>
 
     <div class="col-span-2 space-y-6">

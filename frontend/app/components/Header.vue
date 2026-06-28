@@ -55,14 +55,16 @@ const anioSeleccionado = useState('anio_escolar_activo', () => aniosEscolares[0]
     </div>
 
     <div class="flex items-center gap-4">
-      <UTooltip arrow text="Notificaciones" :delay-duration="150">
+
+      <!-- BARRA DE NOTIFICACIONES -->
+      <!-- <UTooltip arrow text="Notificaciones" :delay-duration="150">
         <UButton
           icon="i-heroicons-bell"
           color="gray"
           variant="ghost"
           class="text-gray-500 hover:text-gray-700 hover:bg-olivine-300 rounded-full"
         />
-      </UTooltip>
+      </UTooltip> -->
       
       <UTooltip arrow text="Ayuda" :delay-duration="150">
         <UButton

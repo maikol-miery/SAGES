@@ -52,7 +52,7 @@
         :loading="status === 'pending'"
         :data="personal"
         :columns="columns"
-        class="w-full max-h-[50vh]"
+        class="w-full md:max-h-[60dvh] sm:max-h-[30dvh]"
         :ui="{
           td: 'py-2.5',
           th: 'py-2.5',
