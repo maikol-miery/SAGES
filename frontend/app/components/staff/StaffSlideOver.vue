@@ -200,7 +200,7 @@ const estructuraLimpia = () => ({
   email:        '',
   telefono:     '',
   tipo_personal: '',
-  estado:       '',
+  estado:       'activo',
   username:     '',
   rol:          '',
   password:     ''
