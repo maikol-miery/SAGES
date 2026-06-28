@@ -60,7 +60,7 @@
               />
             </UFormField>
 
-            <div v-if="mode === 'view' || mode === 'edit'" class="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100 mt-2">
+            <div class="grid grid-cols-2 gap-4 pt-1 border-t border-gray-100 mt-2">
   
                 <div>
                     <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">Clasificación</p>
@@ -81,7 +81,7 @@
                     />
                 </div>
 
-                <div>
+                <div v-if="mode !== 'create'">
                     <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">Estatus Sistema</p>
                     
                     <p v-if="mode === 'view'" class="text-xs font-bold text-emerald-700 uppercase pt-1">
