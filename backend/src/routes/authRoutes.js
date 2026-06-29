@@ -25,8 +25,9 @@ router.put('/update-profile', authenticateToken, validateSchema(updateProfileSch
 
 // --- RUTAS EXCLUSIVAS DE ADMIN ---
 // Aquí está la magia: exigimos token Y exigimos que el rol sea 'admin'
-router.post('/verify-questions', validateSchema(verifySecurityQuestionsSchema), authController.verifySecurityQuestions);
-router.post('/reset-password', validateSchema(resetPasswordSchema), authController.resetPassword);
+router.post('/get-questions', authController.getSecurityQuestions);
+router.post('/verify-questions', authController.verifySecurityQuestions);
+router.post('/reset-password', authController.resetPassword);
 
 router.get('/me', authenticateToken, authController.getMe);
 

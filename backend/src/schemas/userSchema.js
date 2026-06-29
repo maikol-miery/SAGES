@@ -102,32 +102,62 @@ const updateProfileSchema = z.object({
         nombre: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres.").optional(),
         apellido: z.string().trim().min(2, "El apellido debe tener al menos 2 caracteres.").optional(),
         email: z.string().email("Formato de correo inválido.").trim().optional(),
-        username: usernameRule.optional(), // Ya lo tienes contemplado aquí
+        username: usernameRule.optional(),
         
-        // ✨ NUEVO: Añadimos el teléfono permitiendo strings vacíos del frontend
+        // 🌟 NUEVO: Validación estricta de cédula venezolana (V, E o solo números entre 7 y 16 dígitos)
+        cedula: z.preprocess((val) => {
+            // 1. Limpiamos espacios y pasamos el valor a undefined si está vacío
+            const cleaned = typeof val === 'string' ? val.trim() : val;
+            if (!cleaned) return undefined;
+            
+            // 2. 🌟 FORZADO SEGURO: Convertimos a mayúsculas antes de que pase a la validación de Zod
+            return cleaned.toUpperCase();
+        }, 
+        z.string()
+            .regex(
+                /^(V|E)?[0-9]{7,16}$/, 
+                "La cédula debe ser válida (Ej: V12345678, E84321654 o solo números de cédula escolar."
+            )
+            .optional()
+        ),
+        
+        // ✨ Añadimos el teléfono permitiendo strings vacíos del frontend
         telefono: z.preprocess(emptyToUndefined, z.string().regex(/^[0-9+ \-]{10,20}$/, "Introduce un número de teléfono válido").optional()),
         
-        // ✨ NUEVO: Añadimos las propiedades para el cambio de contraseña segura
+        // ✨ Añadimos las propiedades para el cambio de contraseña segura
         passwordActual: z.preprocess(emptyToUndefined, z.string().optional()),
-        passwordNueva: z.preprocess(emptyToUndefined, passwordRule.optional()), // Reutiliza tu potente passwordRule
+        passwordNueva: z.preprocess(emptyToUndefined, passwordRule.optional()),
 
-        // Transformamos vacíos en undefined para que el .optional() funcione sin chocar con campos vacíos de Nuxt 3
+        // 🌟 Sincronizado y limpiado: Transformamos vacíos en undefined para soportar Nuxt 3 de forma opcional
         question1: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         answer1: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         question2: z.preprocess(emptyToUndefined, z.string().trim().optional()),
         answer2: z.preprocess(emptyToUndefined, z.string().trim().optional())
     }).superRefine((data, ctx) => {
-        // Validación cruzada relacional de preguntas existentes
-        if (data.question1 && !data.answer1) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe responder a la pregunta de seguridad 1.", path: ["answer1"] });
+        // 🌟 VALIDACIÓN MEJORADA: Solo exige respuesta si hay un texto real en la pregunta
+        if (typeof data.question1 === 'string' && data.question1.trim() !== '' && !data.answer1) {
+            ctx.addIssue({ 
+                code: z.ZodIssueCode.custom, 
+                message: "Debe responder a la pregunta de seguridad 1.", 
+                path: ["answer1"] 
+            });
         }
-        if (data.question2 && !data.answer2) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe responder a la pregunta de seguridad 2.", path: ["answer2"] });
+        
+        if (typeof data.question2 === 'string' && data.question2.trim() !== '' && !data.answer2) {
+            ctx.addIssue({ 
+                code: z.ZodIssueCode.custom, 
+                message: "Debe responder a la pregunta de seguridad 2.", 
+                path: ["answer2"] 
+            });
         }
 
-        // ✨ NUEVA VALIDACIÓN CRUZADA: Si se envía una nueva contraseña, la actual pasa a ser obligatoria
+        // Validación de contraseña intacta
         if (data.passwordNueva && !data.passwordActual) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe proporcionar la contraseña actual para establecer una nueva.", path: ["passwordActual"] });
+            ctx.addIssue({ 
+                code: z.ZodIssueCode.custom, 
+                message: "Debe proporcionar la contraseña actual para establecer una nueva.", 
+                path: ["passwordActual"] 
+            });
         }
     })
 });

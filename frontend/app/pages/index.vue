@@ -34,12 +34,13 @@
         <h2 id="login-heading" class="text-4xl font-semibold text-olivine-600 mb-2">Iniciar Sesión</h2>
         <p class="text-l text-gray-500 font-medium">Accede a tu cuenta institucional</p>
       </header>
+
       <UForm 
-      :validate-on="['input','blur', 'change']" 
-      :schema="loginSchema" 
-      :state="state"
-      @submit="onSubmit"
-      novalidate
+        :validate-on="['input','blur', 'change']" 
+        :schema="loginSchema" 
+        :state="state"
+        @submit="onSubmit"
+        novalidate
       >
         <UFormField label="Usuario o Correo Electrónico" name="username" :required="true" class="mb-8">
           <UInput
@@ -87,7 +88,7 @@
           :loading="loading" 
           :disabled="loading"
           class="bg-white text-center w-full max-w-md rounded-2xl h-14 relative text-gray-600 text-md font-semibold group shadow-sm overflow-hidden mb-8"
-          >
+        >
           <div
             class="bg-olivine-500 rounded-xl h-12 w-12 absolute left-1 top-[4px] group-hover:w-full group-hover:h-full group-hover:left-0 group-hover:top-0 group-hover:rounded-2xl z-10 duration-500"
           ></div>
@@ -102,29 +103,116 @@
           </div>
 
           <div class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <p class="transition-colors duration-300 group-hover:text-white uppercase f">
+            <p class="transition-colors duration-300 group-hover:text-white uppercase">
               Ingresar
             </p>
           </div>
-
-          </UButton>
+        </UButton>
       </UForm>
 
       <footer>
-        <NuxtLink to="#" class="text-olivine-600 font-semibold text-sm hover:underline block">
+        <button 
+          type="button"
+          @click="modalRecuperarAbierto = true" 
+          class="text-olivine-600 font-semibold text-sm hover:underline block text-left cursor-pointer bg-transparent border-0 p-0"
+        >
           ¿Olvidaste tu contraseña? (Solo Administrador)
-        </NuxtLink>
+        </button>
 
         <p class="text-gray-400 text-sm">© SAGES 2026</p>
       </footer>
     </section>
   </main>
+
+  <UModal v-model:open="modalRecuperarAbierto" title="Recuperación de Cuenta SAGES">
+    <template #body>
+      <div class="p-6 space-y-6">
+
+        <UStepper v-model="currentStep" :items="stepsItems" :linear="false" class="mb-4" />
+
+        <div v-if="currentStep === 0" class="space-y-4">
+          <p class="text-xs text-gray-500">
+            Ingrese su credencial única de acceso institucional. Este flujo es exclusivo para roles con privilegios de Administrador.
+          </p>
+          <UFormField label="Usuario o Correo Administrativo">
+            <UInput
+              v-model="recuperacionForm.username"
+              placeholder="Ej: mmiery_admin"
+              icon="i-heroicons-user"
+              class="w-full"
+            />
+          </UFormField>
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton variant="ghost" color="neutral" @click="modalRecuperarAbierto = false">Cancelar</UButton>
+            <!-- ✅ Corregido: era irAPreguntas, ahora apunta a solicitarPreguntasDinamicas -->
+            <UButton color="primary" class="bg-emerald-600 hover:bg-emerald-700 font-semibold" :loading="cargandoRecuperacion" @click="solicitarPreguntasDinamicas">
+              Siguiente
+            </UButton>
+          </div>
+        </div>
+
+        <div v-if="currentStep === 1" class="space-y-4">
+          <div class="p-3 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-medium flex items-center gap-2">
+            <UIcon name="i-heroicons-shield-exclamation" class="size-5 shrink-0" />
+            <span>Conteste las preguntas asignadas a su perfil físico. Las respuestas no distinguen mayúsculas.</span>
+          </div>
+
+          <UFormField :label="preguntasAdmin.question1">
+            <UInput
+              v-model="recuperacionForm.answer1"
+              type="password"
+              placeholder="Escriba su primera respuesta secreta"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField :label="preguntasAdmin.question2">
+            <UInput
+              v-model="recuperacionForm.answer2"
+              type="password"
+              placeholder="Escriba su segunda respuesta secreta"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton variant="ghost" color="neutral" :disabled="cargandoRecuperacion" @click="currentStep = 0">Atrás</UButton>
+            <UButton color="primary" class="bg-emerald-600 hover:bg-emerald-700 font-semibold" :loading="cargandoRecuperacion" @click="ejecutarVerificacionPreguntas">
+              Validar Respuestas
+            </UButton>
+          </div>
+        </div>
+
+        <div v-if="currentStep === 2" class="space-y-4">
+          <p class="text-xs text-gray-500">
+            Su identidad ha sido validada mediante criptografía simétrica. Ingrese la nueva clave definitiva para SAGES.
+          </p>
+          <UFormField label="Nueva Contraseña del Sistema">
+            <UInput
+              v-model="recuperacionForm.passwordNueva"
+              type="password"
+              placeholder="Introduzca una contraseña robusta"
+              icon="i-heroicons-lock-closed"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <UButton variant="ghost" color="neutral" :disabled="cargandoRecuperacion" @click="currentStep = 1">Atrás</UButton>
+            <UButton color="success" class="font-semibold" :loading="cargandoRecuperacion" @click="ejecutarRestablecimientoClave">
+              Guardar y Sincronizar
+            </UButton>
+          </div>
+        </div>
+
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <script setup>
-import {ref, reactive} from 'vue'
+// ✅ Corregido: eliminado import innecesario, Nuxt auto-importa ref y reactive
 import { loginSchema } from '~/schemas/auth.js'
-
 
 const loading = ref(false)
 const toast = useToast()
@@ -136,11 +224,9 @@ const state = reactive({
 })
 
 async function onSubmit(event) {
-  // 1. Encendemos el estado de carga (congela el botón)
   loading.value = true
   
   try {
-    // 2. Realizamos la petición POST usando tu composable useApi
     const response = await useApi('/auth/login', {
       method: 'POST',
       body: {
@@ -149,33 +235,24 @@ async function onSubmit(event) {
       }
     })
 
-    // 3. Si el backend responde con éxito, aquí tienes tu JSON con el token
     console.log('Respuesta del Backend:', response)
-    
-    // ==========================================================
-    // 🔴 LA PIEZA QUE FALTA: Declarar de dónde salen token y usuario
-    // Como response ya trae { status, message, data }, sacamos token y user de response.data
-    // ==========================================================
+
     const token = response?.data?.token
     const usuario = response?.data?.user
 
-    // 4. Ahora el IF sí sabe qué está evaluando y no dará undefined
     if (token && usuario) {
-      // Creamos las cookies en el navegador
       const tokenCookie = useCookie('token', { maxAge: 60 * 60 * 24 })
       const roleCookie = useCookie('user_role', { maxAge: 60 * 60 * 24 })
       const nameCookie = useCookie('user_name', { maxAge: 60 * 60 * 24 })
 
-      // Asignamos los valores reales de tu base de datos en Postgres
       tokenCookie.value = token
       nameCookie.value = usuario.nombre
-      roleCookie.value = usuario.rol  // 'rol' con 'l' como viene del backend
-      
-      // Toast de éxito antes de irse al dashboard
+      roleCookie.value = usuario.rol
+
       toast.add({
         title: '¡Acceso concedido!',
         description: 'Bienvenido al sistema SAGES.',
-        color: "primary",
+        color: 'primary',
         icon: 'i-heroicons-check-circle'
       })
 
@@ -185,7 +262,6 @@ async function onSubmit(event) {
     }
 
   } catch (error) {
-    // 5. Si el backend devuelve un error (ej: 401 Credenciales Incorrectas)
     console.error('Error en el login:', error.data)
     
     let mensajeFinal = 'Ocurrió un error inesperado.'
@@ -196,24 +272,136 @@ async function onSubmit(event) {
       mensajeFinal = error.data.message
     }
 
-    // Disparamos el Toast de error
     toast.add({
       title: 'No se pudo iniciar sesión',
       description: mensajeFinal,
       icon: 'i-heroicons-exclamation-triangle',
-      color: "error", // Cambiado a 'red' que es el estándar de Nuxt UI
-      timeout: 3000
+      color: 'error',
+      duration: 3000 // ✅ Corregido: era `timeout`, la prop correcta es `duration`
     })
   } finally {
-    // 6. Apagamos el loading siempre, pase lo que pase
     loading.value = false
   }
 }
 
+const modalRecuperarAbierto = ref(false)
+const cargandoRecuperacion = ref(false)
+const currentStep = ref(0)
+
+// ✅ Corregido: values eran strings ('1','2','3'), ahora son números (0,1,2)
+// para que coincidan con las comparaciones currentStep === 0/1/2 del template
+const stepsItems = [
+  { value: 0, label: 'Identidad', icon: 'i-heroicons-user',        description: 'Administrador' },
+  { value: 1, label: 'Seguridad', icon: 'i-heroicons-shield-check', description: 'Cuestionario'  },
+  { value: 2, label: 'Finalizar', icon: 'i-heroicons-key',          description: 'Nueva clave'   }
+]
+
+const recuperacionForm = ref({
+  username: '',
+  answer1: '',
+  answer2: '',
+  passwordNueva: ''
+})
+
+const resetTokenTemp = ref('')
+
+const preguntasAdmin = ref({
+  question1: '',
+  question2: ''
+})
+
+const solicitarPreguntasDinamicas = async () => {
+  if (!recuperacionForm.value.username.trim()) {
+    return toast.add({ title: 'Atención', description: 'Por favor, introduce tu usuario administrativo.', color: 'warning' })
+  }
+
+  cargandoRecuperacion.value = true
+  try {
+    const res = await useApi('/auth/get-questions', {
+      method: 'POST',
+      body: { username: recuperacionForm.value.username }
+    })
+
+    preguntasAdmin.value.question1 = res.data.question1
+    preguntasAdmin.value.question2 = res.data.question2
+
+    currentStep.value = 1
+  } catch (error) {
+    toast.add({
+      title: 'Módulo Bloqueado',
+      description: error.data?.message || 'No se pudieron recuperar las preguntas del servidor.',
+      color: 'error'
+    })
+  } finally {
+    cargandoRecuperacion.value = false
+  }
+}
+
+const ejecutarVerificacionPreguntas = async () => {
+  if (!recuperacionForm.value.answer1.trim() || !recuperacionForm.value.answer2.trim()) {
+    return toast.add({ title: 'Campos Vacíos', description: 'Debe responder ambas preguntas secretas.', color: 'warning' })
+  }
+
+  cargandoRecuperacion.value = true
+  try {
+    const res = await useApi('/auth/verify-questions', {
+      method: 'POST',
+      body: {
+        username: recuperacionForm.value.username,
+        answer1: recuperacionForm.value.answer1,
+        answer2: recuperacionForm.value.answer2
+      }
+    })
+
+    resetTokenTemp.value = res.temporaryToken
+    toast.add({ title: 'Verificación Exitosa', description: res.message, color: 'success' })
+    currentStep.value = 2
+  } catch (error) {
+    toast.add({
+      title: 'Error de Seguridad',
+      description: error.data?.message || 'Respuestas incorrectas.',
+      color: 'error'
+    })
+  } finally {
+    cargandoRecuperacion.value = false
+  }
+}
+
+const ejecutarRestablecimientoClave = async () => {
+  if (!recuperacionForm.value.passwordNueva || recuperacionForm.value.passwordNueva.trim().length < 6) {
+    return toast.add({ title: 'Contraseña Débil', description: 'La clave debe poseer al menos 6 caracteres.', color: 'warning' })
+  }
+
+  cargandoRecuperacion.value = true
+  try {
+    const res = await useApi('/auth/reset-password', {
+      method: 'POST',
+      body: {
+        temporaryToken: resetTokenTemp.value,
+        newPassword: recuperacionForm.value.passwordNueva
+      }
+    })
+
+    toast.add({ title: 'Proceso Culminado', description: res.message, color: 'success' })
+    
+    modalRecuperarAbierto.value = false
+    currentStep.value = 0
+    recuperacionForm.value = { username: '', answer1: '', answer2: '', passwordNueva: '' }
+    resetTokenTemp.value = ''
+  } catch (error) {
+    toast.add({
+      title: 'Fallo en Restablecimiento',
+      description: error.data?.message || 'Sesión expirada.',
+      color: 'error'
+    })
+  } finally {
+    cargandoRecuperacion.value = false
+  }
+}
 </script>
 
 <style scoped>
 ::-ms-reveal {
-    display: none;
+  display: none;
 }
 </style>
