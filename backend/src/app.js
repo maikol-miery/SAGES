@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const fileUpload = require('express-fileupload');
 const authRoutes = require('./routes/authRoutes');
 const studentsRoutes = require('./routes/studentsRoutes');
 const sectionsRoutes = require('./routes/sectionsRoutes');
@@ -9,6 +10,7 @@ const academicLoadRoutes = require('./routes/academicLoadRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const qualificationsRoutes = require('./routes/qualificationsRoutes');
 const representativesRoutes = require('./routes/representativeRoutes');
+const maintenanceRoutes = require('./routes/maintenanceRoutes')
 const sequelize = require('./databases/db_config');
 
 const app = express();
@@ -22,6 +24,10 @@ app.use((err, req, res, next) => {
   }
   next();
 });
+app.use(fileUpload({
+    createParentPath: true, // Crea automáticamente la carpeta /storage si no existe
+    limits: { fileSize: 50 * 1024 * 1024 }, // Límite de 50MB por ejemplo
+}));
 
 // Rutas
 app.use('/api/auth', authRoutes);
@@ -33,6 +39,7 @@ app.use('/api/academic-load', academicLoadRoutes)
 app.use('/api/staff', staffRoutes);
 app.use('/api/qualifications', qualificationsRoutes);
 app.use('/api/representatives', representativesRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 async function startServer() {
     try {

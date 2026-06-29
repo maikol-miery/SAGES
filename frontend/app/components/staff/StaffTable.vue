@@ -272,7 +272,7 @@ const queryParams = computed(() => {
 
 const { data: response, status, refresh } = useAsyncData(
   'staff-list',
-  () => useApi('/staff', { method: 'GET', query: queryParams.value }),
+  () => useApi('/staff/list', { method: 'GET', query: queryParams.value }),
   { watch: [queryParams] }
 )
 
