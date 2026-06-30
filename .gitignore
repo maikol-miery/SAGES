@@ -26,6 +26,7 @@ yarn-error.log*
 
 # Base de datos local
 *.db
+*.dll
 
 #SEED
 backend/src/seed.js
