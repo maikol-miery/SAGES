@@ -47,7 +47,8 @@ const handleExportar = async () => {
     const hoy  = new Date().toISOString().split('T')[0]
 
     a.href     = url
-    a.download = `sages_db_${hoy}.bak`
+    // 👇 Aquí está el cambio: de .bak a .backup
+    a.download = `sages_db_${hoy}.backup` 
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

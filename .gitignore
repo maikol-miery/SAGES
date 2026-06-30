@@ -26,6 +26,9 @@ yarn-error.log*
 
 # Base de datos local
 *.db
+backend/bin/
+backend/obj/
+*.exe
 *.dll
 
 #SEED

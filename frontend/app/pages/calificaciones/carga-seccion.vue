@@ -232,9 +232,9 @@ const avanzarPasoAjustes = async () => {
 }
 
 const getNotaColor = (nota) => {
-  if (nota >= 15) return 'bg-emerald-600 shadow-emerald-500/40'
-  if (nota >= 10) return 'bg-blue-600 shadow-blue-500/40'
-  return 'bg-red-600 shadow-red-500/40'
+  if (nota >= 15) return 'bg-primary-500'
+  if (nota >= 10) return 'bg-info'
+  return 'bg-error-500'
 }
 
 const promedioSeccion = computed(() => {
@@ -287,7 +287,7 @@ watch(() => state.lapso, () => {
     <div class="grid grid-cols-2 gap-4">
 
       <div class="w-full flex flex-col gap-1">
-        <label class="text-sm font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+        <label class="text-md font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
           <UIcon name="i-lucide-calendar-days" /> Año y Sección
         </label>
         <USelectMenu
@@ -300,7 +300,7 @@ watch(() => state.lapso, () => {
       </div>
 
       <div class="w-full flex flex-col gap-1">
-        <label class="text-sm font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
+        <label class="text-md font-bold text-gray-400 uppercase mb-1 flex items-center gap-1">
           <UIcon name="i-lucide-book-open" /> Materia
         </label>
         <USelectMenu
@@ -322,7 +322,7 @@ watch(() => state.lapso, () => {
 
     <UTabs v-model="lapsoActivo" :items="momentos" class="w-full" />
 
-    <UCard :ui="{ body: 'p-0' }" class="overflow-hidden shadow-xl border-emerald-100">
+    <UCard :ui="{ body: 'p-0' }" class="overflow-hidden border-primary-100">
 
       <!-- Loading -->
       <div v-if="loading" class="p-8 flex justify-center items-center">
@@ -333,21 +333,21 @@ watch(() => state.lapso, () => {
         Selecciona una sección y materia para desplegar la sábana de notas.
       </div>
 
-      <table v-else class="w-full text-left text-sm border-collapse">
+      <table v-else class="w-full text-left text-md border-collapse">
         <thead class="bg-slate-100 text-[10px] uppercase font-bold text-slate-500">
           <tr>
-            <th class="p-4 w-12 text-center">N°</th>
-            <th class="p-4 w-32">Cédula</th>
-            <th class="p-4">Apellidos y Nombres</th>
+            <th class="p-4 text-sm w-12 text-center">N°</th>
+            <th class="p-4 text-sm w-32">Cédula</th>
+            <th class="p-4 text-sm">Apellidos y Nombres</th>
             <template v-if="pasoActual === 0">
-              <th v-for="n in 5" :key="n" class="p-4 text-center w-20">Eval {{ n }}</th>
+              <th v-for="n in 5" :key="n" class="p-4 text-sm text-center w-20">Eval {{ n }}</th>
             </template>
             <template v-else>
-              <th class="p-4 text-center w-24">Ajuste</th>
-              <th class="p-4 text-center w-24">P. Extra</th>
-              <th class="p-4 w-44">Cláusula Aplicada</th>
+              <th class="p-4 text-center text-sm w-24">Ajuste</th>
+              <th class="p-4 text-center text-sm w-24">P. Extra</th>
+              <th class="p-4 w-44 text-sm">Cláusula Aplicada</th>
             </template>
-            <th class="p-4 text-center w-24 bg-emerald-50/50">
+            <th class="p-4 text-sm text-primary text-center w-24 bg-primary-50/50">
               {{ pasoActual === 0 ? 'Calific. F.' : 'Definitiva' }}
             </th>
             <th v-if="pasoActual === 1" class="p-4">Observaciones Institucionales</th>
@@ -366,10 +366,10 @@ watch(() => state.lapso, () => {
             <td class="p-4 font-medium text-slate-600">{{ alumno.id_card }}</td>
             <td class="p-4">
               <div class="flex items-center gap-3">
-                <div class="size-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 bg-emerald-500">
+                <div class="size-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0 bg-primary-500">
                   {{ alumno.first_name.charAt(0) }}
                 </div>
-                <span class="font-bold text-slate-800 uppercase text-xs">
+                <span class="font-bold text-slate-800 uppercase text-sm">
                   {{ alumno.last_name }}, {{ alumno.first_name }}
                 </span>
               </div>
@@ -384,7 +384,7 @@ watch(() => state.lapso, () => {
                     min="0"
                     max="20"
                     @input="handleNotaChange(alumno)"
-                    class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm transition-all"
+                    class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-md transition-all"
                   />
                 </UFormField>
               </td>
@@ -399,7 +399,7 @@ watch(() => state.lapso, () => {
                   max="2"
                   :disabled="alumno.control_anual?.materia_bloqueada_anual && alumno.clausula_aplicada !== 'literal_13'"
                   @input="recalcularFilaDefinitiva(alumno)"
-                  class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm transition-all disabled:bg-slate-100 disabled:text-slate-400"
+                  class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-md transition-all disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </td>
               <td class="p-2 text-center">
@@ -410,7 +410,7 @@ watch(() => state.lapso, () => {
                   max="20"
                   :disabled="alumno.control_anual?.materia_bloqueada_anual && alumno.clausula_aplicada !== 'literal_13'"
                   @input="recalcularFilaDefinitiva(alumno)"
-                  class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm transition-all disabled:bg-slate-100 disabled:text-slate-400"
+                  class="w-14 h-10 text-center bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-md transition-all disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </td>
               <td class="p-2">
@@ -425,9 +425,9 @@ watch(() => state.lapso, () => {
               </td>
             </template>
 
-            <td class="p-4 text-center bg-emerald-50/30">
+            <td class="p-4 text-center bg-primary-50/30">
               <div
-                class="w-10 h-10 mx-auto rounded-full flex items-center justify-center font-bold text-white shadow-lg relative"
+                class="w-10 h-10 mx-auto rounded-md borde flex items-center justify-center font-bold text-white relative"
                 :class="getNotaColor(pasoActual === 0 ? alumno.calificacion_final : alumno.nota_definitiva)"
               >
                 {{ pasoActual === 0 ? alumno.calificacion_final : alumno.nota_definitiva }}
@@ -447,25 +447,24 @@ watch(() => state.lapso, () => {
                 type="text"
                 placeholder="Indique los motivos del ajuste..."
                 :disabled="alumno.control_anual?.materia_bloqueada_anual && alumno.clausula_aplicada !== 'literal_13'"
-                class="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-xs transition-all disabled:bg-slate-50 disabled:text-gray-400 placeholder:italic"
+                class="w-full h-10 px-3 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none text-sm transition-all disabled:bg-slate-50 disabled:text-gray-400 placeholder:italic"
               />
             </td>
           </tr>
         </tbody>
       </table>
 
-      <div v-if="state.academic_load_id && !loading" class="bg-slate-100 p-3 flex justify-between items-center text-xs">
+      <div v-if="state.academic_load_id && !loading" class="bg-slate-100 p-3 flex justify-between items-center text-sm">
         <div class="flex gap-6">
           <span class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-emerald-500" />
-            Estudiantes en Nómina: <strong class="text-emerald-500">{{ state.estudiantes.length }}</strong>
+            <div class="w-2 h-2 rounded-full bg-info" />
+            Estudiantes en Nómina: <strong class="text-info">{{ state.estudiantes.length }}</strong>
           </span>
           <span class="flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-purple-500" />
-            Promedio Sección: <strong class="text-purple-500">{{ promedioSeccion }}</strong>
+            <div class="w-2 h-2 rounded-full bg-primary-500" />
+            Promedio Sección: <strong class="text-primary-500">{{ promedioSeccion }}</strong>
           </span>
         </div>
-        <UPagination v-model:page="page" :total="state.estudiantes.length" :items-per-page="10" />
       </div>
     </UCard>
 
@@ -474,7 +473,7 @@ watch(() => state.lapso, () => {
         <UAlert
           v-if="pasoActual === 0"
           icon="i-lucide-info"
-          color="success"
+          color="primary"
           variant="subtle"
           title="Nota de Proceso continuo"
           description="Al avanzar al Paso 2, se transmutará la cuadrícula para abrir las actas del Consejo de Sección y gestionar cláusulas institucionales."
@@ -504,7 +503,7 @@ watch(() => state.lapso, () => {
 
         <UButton
           v-if="pasoActual === 0"
-          color="success"
+          color="primary"
           size="xl"
           class="px-8 py-4 font-bold rounded-xl group"
           @click="avanzarPasoAjustes"
@@ -518,7 +517,7 @@ watch(() => state.lapso, () => {
         <UButton
           v-else
           type="submit"
-          color="success"
+          color="primary"
           size="xl"
           class="px-8 py-4 font-bold rounded-xl"
           icon="i-lucide-check-circle"

@@ -9,8 +9,4 @@ const { authenticateToken, isAdmin } = require('../middlewares/authMiddleware');
 // GET /api/maintenance/export
 router.get('/export', authenticateToken, isAdmin, exportDatabase);
 
-// Ruta para importar (Subir .bak y restaurar PostgreSQL)
-// POST /api/maintenance/restore
-router.post('/restore', authenticateToken, isAdmin, restoreDatabase);
-
 module.exports = router;

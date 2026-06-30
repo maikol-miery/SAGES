@@ -88,9 +88,12 @@ const anioSeleccionado = useState('anio_escolar_activo', () => aniosEscolares[0]
           </p>
         </div>
 
-        <div class="size-9 rounded-full bg-olivine-500 text-white flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-olivine-600">
-          {{ userName?.charAt(0) || 'U' }}
-        </div>
+        <NuxtLink to="/dashboard/mi-perfil">
+          <div class="size-9 rounded-full bg-olivine-500 text-white flex items-center justify-center font-bold text-sm uppercase shadow-sm border border-olivine-600">
+            {{ userName?.charAt(0) || 'U' }}
+          </div>
+        </NuxtLink>
+        
       </div>
 
     </div>

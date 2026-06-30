@@ -145,14 +145,14 @@
           <div class="flex justify-end gap-2 pt-2">
             <UButton variant="ghost" color="neutral" @click="modalRecuperarAbierto = false">Cancelar</UButton>
             <!-- ✅ Corregido: era irAPreguntas, ahora apunta a solicitarPreguntasDinamicas -->
-            <UButton color="primary" class="bg-emerald-600 hover:bg-emerald-700 font-semibold" :loading="cargandoRecuperacion" @click="solicitarPreguntasDinamicas">
+            <UButton color="primary" class="bg-primary-600 hover:bg-primary-700 font-semibold" :loading="cargandoRecuperacion" @click="solicitarPreguntasDinamicas">
               Siguiente
             </UButton>
           </div>
         </div>
 
         <div v-if="currentStep === 1" class="space-y-4">
-          <div class="p-3 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-medium flex items-center gap-2">
+          <div class="p-3 bg-primary-50 text-primary-800 rounded-lg text-xs font-medium flex items-center gap-2">
             <UIcon name="i-heroicons-shield-exclamation" class="size-5 shrink-0" />
             <span>Conteste las preguntas asignadas a su perfil físico. Las respuestas no distinguen mayúsculas.</span>
           </div>
@@ -177,7 +177,7 @@
 
           <div class="flex justify-end gap-2 pt-2">
             <UButton variant="ghost" color="neutral" :disabled="cargandoRecuperacion" @click="currentStep = 0">Atrás</UButton>
-            <UButton color="primary" class="bg-emerald-600 hover:bg-emerald-700 font-semibold" :loading="cargandoRecuperacion" @click="ejecutarVerificacionPreguntas">
+            <UButton color="primary" class="bg-primary-600 hover:bg-primary-700 font-semibold" :loading="cargandoRecuperacion" @click="ejecutarVerificacionPreguntas">
               Validar Respuestas
             </UButton>
           </div>

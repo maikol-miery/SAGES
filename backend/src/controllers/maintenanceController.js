@@ -1,16 +1,15 @@
 const { exec } = require('child_process');
 const path = require('path');
-const fs = require('fs');
-const os = require('os');
 
+// Cargamos las variables de entorno
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
-// Rutas a los ejecutables
+// Solo necesitamos la ruta al exportador
 const PG_DUMP_PATH = path.join(__dirname, '../bin/pg_dump.exe');
-const PG_RESTORE_PATH = path.join(__dirname, '../bin/pg_restore.exe');
 
 let dbConfig = { host: 'localhost', port: 5432, user: 'postgres', name: 'sages_db', password: '' };
 
+// Verificamos si hay URL de conexión
 if (process.env.DATABASE_URL) {
     try {
         const dbUrl = new URL(process.env.DATABASE_URL);
@@ -24,67 +23,36 @@ if (process.env.DATABASE_URL) {
     }
 }
 
-// A. Exportar Respaldo
+// ÚNICO MÉTODO: Exportar Respaldo
 const exportDatabase = async (req, res) => {
     try {
+        // Validamos que solo el admin pueda hacer el respaldo
         if (req.user.rol !== 'admin') return res.status(403).json({ message: 'Acceso denegado.' });
 
         const fecha = new Date().toISOString().split('T')[0];
-        const fileName = `sages_db_${fecha}.bak`;
+        // Utilizamos la extensión .backup para compatibilidad nativa con pgAdmin
+        const fileName = `sages_db_${fecha}.backup`; 
         const env = { ...process.env, PGPASSWORD: dbConfig.password };
         
+        // -F c genera el formato Custom que es el ideal para pgAdmin
         const comando = `"${PG_DUMP_PATH}" -h ${dbConfig.host} -p ${dbConfig.port} -U ${dbConfig.user} -F c ${dbConfig.name}`;
 
         res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
         res.setHeader('Content-Type', 'application/octet-stream');
 
         const processDump = exec(comando, { env });
+        
+        // Enviamos el archivo directamente al navegador del usuario
         processDump.stdout.pipe(res);
 
         processDump.on('close', (code) => {
-            if (code !== 0) console.error(`Error en pg_dump código: ${code}`);
+            if (code !== 0) console.error(`🔴 Error en pg_dump código: ${code}`);
         });
     } catch (error) {
-        res.status(500).send('Error interno.');
+        console.error('🔴 Error interno al exportar:', error);
+        res.status(500).send('Error interno del servidor.');
     }
 };
 
-// B. Importar/Restaurar Respaldo (Técnica del .bat temporal)
-const restoreDatabase = async (req, res) => {
-    if (req.user.rol !== 'admin') return res.status(403).json({ message: 'Acceso denegado.' });
-    if (!req.files || !req.files.backupFile) return res.status(400).json({ message: 'Sin archivo.' });
-
-    const backupFile = req.files.backupFile;
-    const uploadPath = path.join(__dirname, '../storage/temp_restore.bak');
-    const batPath = path.join(os.tmpdir(), `restore_${Date.now()}.bat`);
-
-    try {
-        if (!fs.existsSync(path.dirname(uploadPath))) fs.mkdirSync(path.dirname(uploadPath), { recursive: true });
-        await backupFile.mv(uploadPath);
-
-        const comandoBat = [
-            '@echo off',
-            `"${PG_RESTORE_PATH}" -h ${dbConfig.host} -p ${dbConfig.port} -U ${dbConfig.user} -d ${dbConfig.name} --clean --if-exists "${uploadPath}"`,
-            'exit'
-        ].join('\n');
-
-        fs.writeFileSync(batPath, comandoBat);
-
-        exec(`"${batPath}"`, { env: { ...process.env, PGPASSWORD: dbConfig.password } }, (error, stdout, stderr) => {
-            // Limpieza inmediata
-            if (fs.existsSync(uploadPath)) fs.unlinkSync(uploadPath);
-            if (fs.existsSync(batPath)) fs.unlinkSync(batPath);
-
-            if (error && error.code !== 1) { // 1 es advertencia, aceptable
-                console.error('🔴 Error crítico:', stderr);
-                return res.status(500).json({ status: 'error', message: 'Fallo crítico en restauración' });
-            }
-
-            return res.status(200).json({ status: 'success', message: 'Restauración exitosa' });
-        });
-    } catch (error) {
-        res.status(500).json({ status: 'error', message: 'Error en servidor' });
-    }
-};
-
-module.exports = { exportDatabase, restoreDatabase };
+// Exportamos únicamente la función de respaldo
+module.exports = { exportDatabase };
