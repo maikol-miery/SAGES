@@ -6,6 +6,11 @@
 .cache
 dist
 
+backend/bin/
+backend/obj/
+*.exe
+*.dll
+
 # Node dependencies
 node_modules
 
