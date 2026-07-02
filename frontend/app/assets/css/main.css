@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+
 @theme static {
   /* OLIVINE*/
 --color-olivine-50: #f2f8ed;
@@ -41,3 +42,4 @@
 --color-pale-sky-900: #111827;
 --color-pale-sky-950: #030712;
 }
+

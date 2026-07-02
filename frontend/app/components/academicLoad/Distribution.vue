@@ -1,11 +1,14 @@
 <script setup>
-import { materiaSchema } from '~/schemas/materiaSchema.js'
+// ✅ Sin imports manuales de Vue ni de materiaSchema (no se usa)
 
 const toast = useToast()
 const anioGlobal = useState('anio_escolar_activo')
 
+// 🚀 INTEGRACIÓN DEL COMPOSABLE ACADÉMICO
+const { secciones: seccionesGlobales, fetchSecciones } = useAcademicData()
+
 // 1. ESTADO REACTIVO DE CONTROL DE UI
-const activeYear = ref('1') 
+const activeYear = ref('1')
 const loading = ref(false)
 const childRef = ref(null)
 const popoverAbierto = ref(false)
@@ -13,19 +16,21 @@ const popoverAbierto = ref(false)
 // 2. CACHÉ DE SELECTORES REMOTOS
 const docentes = ref([])
 const materias = ref([])
-const secciones = ref([])
 const todasLasSecciones = ref([])
+
+// ✅ computed declarado fuera del reactive
+const anioEscolarComputed = computed(() => anioGlobal.value?.value || '')
 
 // 3. ESTADOS DE FORMULARIOS (REACTIVE)
 const state = reactive({
-  staff_id: undefined,    
+  staff_id: undefined,
   subject_id: undefined,
-  section_id: undefined, 
-  anio_escolar: '2025-2026'
+  section_id: undefined,
+  anio_escolar: anioEscolarComputed // ✅ referencia al computed externo
 })
 
 const stateMateria = reactive({
-  nombre: '',    
+  nombre: '',
   abreviatura: '',
   grado: '',
   tipo_evaluacion: 'cuantitativa'
@@ -46,22 +51,20 @@ const years = [
 ]
 
 // 5. WATCHERS
-// Limpiar formulario de materia corta al cerrar el popover
 watch(popoverAbierto, (abierto) => {
   if (!abierto) {
     stateMateria.nombre = ''
     stateMateria.abreviatura = ''
     stateMateria.grado = ''
-    stateMateria.tipo_evaluacion = 'cuantitativa' 
+    stateMateria.tipo_evaluacion = 'cuantitativa'
   }
 })
 
-// 🚀 Consulta Híbrida: Carga de materias bajo demanda por Grado y sin paginar
 watch(() => state.section_id, async (nuevoSectionId) => {
   if (!nuevoSectionId) {
     materias.value = []
     state.subject_id = undefined
-    stateMateria.grado = undefined
+    stateMateria.grado = '' // ✅ string vacío, no undefined
     return
   }
 
@@ -72,7 +75,6 @@ watch(() => state.section_id, async (nuevoSectionId) => {
     stateMateria.grado = String(seccionSeleccionada.grado)
 
     try {
-      // Pedimos al backend únicamente las materias de este año escolar sin límite (all: true)
       const res = await useApi('/subjects', {
         method: 'GET',
         query: { year: seccionSeleccionada.grado, all: true }
@@ -80,8 +82,8 @@ watch(() => state.section_id, async (nuevoSectionId) => {
 
       const materiasBackend = res.subjects || []
       materias.value = materiasBackend.map(m => ({
-        label: `${m.nombre} (${m.grado}° Año)`, 
-        value: m.id 
+        label: `${m.nombre} (${m.grado}° Año)`,
+        value: m.id
       }))
     } catch (error) {
       console.error('Error al traer las materias del grado bajo demanda:', error)
@@ -89,26 +91,33 @@ watch(() => state.section_id, async (nuevoSectionId) => {
   }
 })
 
+watch(anioGlobal, () => {
+  state.section_id = undefined
+  state.subject_id = undefined
+  materias.value = []
+  fetchSecciones(true)
+  cargarSelectores
+})
+
 // 6. PETICIONES API
 const cargarSelectores = async () => {
+   console.log('🟢 PADRE: cargarSelectores ejecutado')
   try {
-    // 💡 Quitamos /subjects de aquí, optimizando la carga inicial de recursos
+    // ✅ fetchSecciones() fuera del Promise.all ya que es un efecto de composable
     const [resDocentes, resSecciones] = await Promise.all([
-      useApi('/staff', { method: 'GET', query: { tipo_personal: "docente" } }),
+      useApi('/staff', { method: 'GET', query: { tipo_personal: 'docente' } }),
       useApi('/sections', { method: 'GET' })
     ])
-    
+
+    await fetchSecciones(true) // ✅ llamada separada, alimenta seccionesGlobales
+
     const listaDocentes = resDocentes.data || []
-    docentes.value = listaDocentes.map(d => ({ 
-      label: `Prof. ${d.nombre} ${d.apellido}`, 
-      value: d.id 
+    docentes.value = listaDocentes.map(d => ({
+      label: `Prof. ${d.nombre} ${d.apellido}`,
+      value: d.id
     }))
-    
+
     todasLasSecciones.value = resSecciones.sections || []
-    secciones.value = todasLasSecciones.value.map(s => ({ 
-      label: `${s.grado}° Año - Sección ${s.seccion}`, 
-      value: s.id 
-    }))
   } catch (error) {
     console.error('Error cargando selectores del formulario:', error)
   }
@@ -116,7 +125,7 @@ const cargarSelectores = async () => {
 
 const asignarCarga = async () => {
   if (!state.staff_id || !state.subject_id || !state.section_id) return
-  
+
   loading.value = true
   try {
     const response = await useApi('/academic-load', {
@@ -124,19 +133,18 @@ const asignarCarga = async () => {
       body: state
     })
 
-    if (response && response.status === "success") {
+    if (response?.status === 'success') {
       toast.add({
         title: '¡Carga Asignada!',
         description: response?.message || 'El docente ha sido vinculado a la materia y sección correctamente.',
         color: 'success',
         icon: 'i-lucide-check-circle',
-        timeout: 4000
+        duration: 4000 // ✅ era "timeout", el prop correcto es "duration"
       })
-      
+
       state.staff_id = undefined
       state.subject_id = undefined
       state.section_id = undefined
-      state.anio_escolar = '2025-2026'
 
       if (childRef.value) {
         await childRef.value.cargarSecciones()
@@ -149,7 +157,7 @@ const asignarCarga = async () => {
       description: error.data?.message || 'No se pudo vincular la carga. Verifica si el docente ya tiene esa materia en la misma sección.',
       color: 'error',
       icon: 'i-lucide-alert-triangle',
-      timeout: 5000
+      duration: 5000 // ✅
     })
   } finally {
     loading.value = false
@@ -166,25 +174,24 @@ const nuevaMateria = async () => {
       body: stateMateria
     })
 
-    if (response && response.status === 'success') {
+    if (response?.status === 'success') {
       toast.add({
         title: '¡Materia Añadida!',
         description: `${response.newSubject.nombre} ha sido añadida correctamente`,
-        color: 'success', 
+        color: 'success',
         icon: 'i-lucide-check-circle',
-        timeout: 4000
+        duration: 4000 // ✅
       })
 
       popoverAbierto.value = false
       stateMateria.nombre = ''
       stateMateria.abreviatura = ''
 
-      const nuevaMateriaBackend = response.newSubject 
+      const nuevaMateriaBackend = response.newSubject
 
       if (nuevaMateriaBackend) {
         const seccionSeleccionada = todasLasSecciones.value.find(s => s.id === state.section_id)
-        
-        // Si el usuario guardó una materia rápida que pertenece justo al año de la sección seleccionada, la inyectamos
+
         if (seccionSeleccionada && String(nuevaMateriaBackend.grado) === String(seccionSeleccionada.grado)) {
           materias.value.push({
             label: `${nuevaMateriaBackend.nombre} (${nuevaMateriaBackend.grado}° Año)`,
@@ -198,12 +205,12 @@ const nuevaMateria = async () => {
     toast.add({
       title: 'Error al agregar la materia',
       description: error.data?.msg || 'No se pudo agregar la materia. Revisa los campos.',
-      color: 'error', 
+      color: 'error',
       icon: 'i-lucide-alert-triangle',
-      timeout: 5000
+      duration: 5000 // ✅
     })
   } finally {
-    loading.value = false 
+    loading.value = false
   }
 }
 
@@ -240,8 +247,9 @@ onMounted(() => {
           <UFormField label="Seleccionar grado y sección" name="section_id">
             <USelectMenu
               v-model="state.section_id"
-              :items="secciones"
-              value-key="value"
+              :items="seccionesGlobales"
+              value-key="id"
+              by="id"
               size="lg"
               placeholder="Seleccionar sección..."
               class="w-full p-2.5 text-md transition-all duration-300 focus:bg-olivine-50 focus:ring-2 focus:ring-olivine-500"
@@ -355,6 +363,7 @@ onMounted(() => {
         ref="childRef" 
         :year="activeYear"
         :anioEscolar="anioGlobal?.value"
+        @actualizado="cargarSelectores"
       />
     </div>
 

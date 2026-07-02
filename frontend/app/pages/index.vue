@@ -3,24 +3,35 @@
     
     <aside class="w-full h-full bg-linear-to-br from-olivine-400 to-olivine-600 flex justify-center items-center flex-col p-14 relative animate-fade-in text-white">
       <div class="bg-white/20 p-4 rounded-3xl backdrop-blur-sm mb-6" aria-hidden="true">
-          <UIcon name="i-heroicons-academic-cap" class="w-20 h-20 text-white" />
+          <AppLogo class="text-primary-800 size-20"></AppLogo>
       </div>
-      <h1 class="text-6xl font-bold tracking-tighter mb-2">Bienvenido a</h1>
-      <p class="text-3xl font-bold tracking-[0.2em] opacity-90">SAGES</p>
-      <div class="overflow-hidden w-full mb-4">
-        <UPageLogos
-          title=""
-          :marquee="{repeat: 10, speed: 'slow', pauseOnHover: true, overlay: false}"
-          class="mt-8 mb-8 text-olivine-700"
-          :items="[
-            'i-simple-icons-nodedotjs',
-            'i-simple-icons-postgresql',
-            'i-simple-icons-supabase',
-            'i-simple-icons-vuejs',
-            'i-simple-icons-nuxt',
-            'i-simple-icons-tailwindcss',
-          ]"
-        />
+      <h1 class="text-2xl font-bold tracking-tighter mb-2">Bienvenido a</h1>
+      <p class="text-7xl font-bold opacity-90">SAGES</p>
+      <div class="overflow-hidden w-full flex justify-center items-center py-5 mb-4">
+        <UMarquee
+          :repeat="6"
+          :pause-on-hover="true"
+          class="mt-8 mb-8 py-8"
+          overlay="false"
+          :ui="{ root: '[--duration:40s]', content: 'gap-x-16' }"
+        >
+          <div
+            v-for="beneficio in beneficios"
+            :key="beneficio.label"
+            class="flex flex-col justify-center items-center max-w-[220px] h-[220px] text-center gap-3 px-5 py-4 bg-white/10 backdrop-blur-md rounded-xl shadow-xl transition-all duration-300 shrink-0"
+          >
+            <UIcon 
+              :name="beneficio.icon" 
+              class="size-12 text-white drop-shadow-sm shrink-0" 
+            />
+            
+            <div class="flex flex-col gap-1">
+              <span class="text-md font-bold opacity-70 tracking-wide">
+                {{ beneficio.label }}
+              </span>
+            </div>
+          </div>
+        </UMarquee>
       </div>
       
       <footer class="text-center">
@@ -199,7 +210,7 @@
 
           <div class="flex justify-end gap-2 pt-2">
             <UButton variant="ghost" color="neutral" :disabled="cargandoRecuperacion" @click="currentStep = 1">Atrás</UButton>
-            <UButton color="success" class="font-semibold" :loading="cargandoRecuperacion" @click="ejecutarRestablecimientoClave">
+            <UButton color="primary" class="font-semibold" :loading="cargandoRecuperacion" @click="ejecutarRestablecimientoClave">
               Guardar y Sincronizar
             </UButton>
           </div>
@@ -222,6 +233,14 @@ const state = reactive({
   username: '',
   password: ''
 })
+
+const beneficios = [
+  { icon: 'i-lucide-file-spreadsheet',   label: 'Gestión De Calificaciones En Tiempo Real' },
+  { icon: 'i-lucide-git-branch',  label: 'Vinculación de Docentes, Secciones y Asignaturas' },
+  { icon: 'i-lucide-zap',    label: 'Optimización del Tiempo Administrativo' },
+  { icon: 'i-lucide-users',       label: 'Monitoreo de Inscripciones y Secciones' },
+  { icon: 'i-lucide-lock',        label: 'Roles y Permisos Estrictos' }
+]
 
 async function onSubmit(event) {
   loading.value = true

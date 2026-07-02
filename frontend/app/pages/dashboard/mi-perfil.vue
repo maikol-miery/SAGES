@@ -78,7 +78,7 @@
                   type="button"
                   color="neutral"
                   variant="link"
-                  :icon="showPasswordActual ? 'i-lucide-eye-slash' : 'i-lucide-eye'"
+                  :icon="showPasswordActual ? 'i-lucide-eye-off' : 'i-lucide-eye'"
                   @click="showPasswordActual = !showPasswordActual"
                 />
               </template>
@@ -97,7 +97,7 @@
                   type="button"
                   color="neutral"
                   variant="link"
-                  :icon="showPasswordNueva ? 'i-lucide-eye-slash' : 'i-lucide-eye'"
+                  :icon="showPasswordNueva ? 'i-lucide-eye-off' : 'i-lucide-eye'"
                   @click="showPasswordNueva = !showPasswordNueva"
                 />
               </template>
@@ -116,7 +116,7 @@
                   type="button"
                   color="neutral"
                   variant="link"
-                  :icon="showPasswordConfirmar ? 'i-lucide-eye-slash' : 'i-lucide-eye'"
+                  :icon="showPasswordConfirmar ? 'i-lucide-eye-off' : 'i-lucide-eye'"
                   @click="showPasswordConfirmar = !showPasswordConfirmar"
                 />
               </template>

@@ -6,9 +6,11 @@ const props = defineProps({
   },
   anioEscolar: {
     type: String,
-    default: '2025-2026'
+    required: true
   }
 })
+
+const emit = defineEmits(['actualizado'])
 
 const toast = useToast()
 const loading = ref(true)
@@ -60,7 +62,7 @@ const cargarSecciones = async () => {
     // 1. Cargamos las secciones de la carga académica
     const response = await useApi('/academic-load', {
       method: 'GET',
-      query: { grado: `${props.year}` }
+      query: { grado: `${props.year}`, anio_escolar: `${props.anioEscolar}`}
     })
     secciones.value = response.sections ?? []
     
@@ -102,6 +104,7 @@ const confirmarNuevaSeccion = async () => {
       color: 'success',
       icon: 'i-lucide-check-circle'
     })
+    emit('actualizado')
     modalAbierto.value = false
     await cargarSecciones()
   } catch (error) {
@@ -132,6 +135,7 @@ const ejecutarEliminacionEstricta = async () => {
       color: 'success',
       icon: 'i-lucide-trash-2'
     })
+    emit('actualizado')
     modalEliminarAbierto.value = false
     seccionParaEliminar.value = null
     await cargarSecciones()
@@ -163,6 +167,7 @@ const desvincularMateria = async () => {
       color: 'success',
       icon: 'i-lucide-check-circle'
     })
+    emit('actualizado')
     modalEliminarMateriaAbierto.value = false
     materiaParaEliminar.value = null
     await cargarSecciones()
@@ -199,6 +204,7 @@ const modificarDocente = async (academicLoadId, closePopover) => {
         color: 'success',
         icon: 'i-lucide-check-circle'
       })
+      emit('actualizado')
       docenteSeleccionado.value = null
       closePopover()
       await cargarSecciones()
@@ -217,6 +223,10 @@ const modificarDocente = async (academicLoadId, closePopover) => {
 }
 
 watch(() => props.year, async () => {
+  await cargarSecciones()
+}, { immediate: true })
+
+watch(() => props.anioEscolar, async () => {
   await cargarSecciones()
 }, { immediate: true })
 
