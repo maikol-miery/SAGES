@@ -82,19 +82,26 @@ const assignTeacher = async (req, res) => {
 
 const getAcademicLoads = async (req, res) => {
     try {
-        const { grado } = req.query; // Recibe "1", "2", "3", etc.
+        // 🚀 1. Capturamos anio_escolar desde la query junto al grado
+        const { grado, anio_escolar } = req.query; 
 
         if (!grado) {
             return res.status(400).json({ msg: "El parámetro grado es requerido." });
         }
 
-        // 1. Buscamos primero todas las secciones registradas para ese grado específico
+        // 🧠 2. Construimos el filtro dinámico para el modelo Section
+        const sectionWhere = { grado: String(grado) };
+        if (anio_escolar) {
+            sectionWhere.anio_escolar = String(anio_escolar); // 💡 Si viene el año, lo inyectamos al filtro
+        }
+
+        // 3. Buscamos primero todas las secciones usando el filtro dinámico
         const sections = await Section.findAll({
-            where: { grado: String(grado) },
+            where: sectionWhere,
             order: [['seccion', 'ASC']]
         });
 
-        // 2. Buscamos las cargas académicas activas de ese grado para armar los joins
+        // 4. Buscamos las cargas académicas activas de ese grado para armar los joins
         const loads = await AcademicLoad.findAll({
             where: { estado: 'activo' },
             include: [
@@ -111,26 +118,25 @@ const getAcademicLoads = async (req, res) => {
                 { 
                     model: Section, 
                     as: 'Section',
-                    where: { grado: String(grado) } // Filtramos solo las de este año
+                    where: sectionWhere // 💡 Reutilizamos el filtro para que el JOIN también valide el año escolar
                 }
             ]
         });
 
-        // 3. 🧠 Mapeamos e interconectamos la información para el Front
+        // 5. Mapeamos e interconectamos la información para el Front (Tu lógica exacta intacta)
         const resultadoFinal = sections.map(sec => {
-            // Filtramos las materias asignadas específicamente a esta sección ID
             const materiasAsignadas = loads
                 .filter(load => load.section_id === sec.id)
                 .map(load => ({
-                    id: load.id, // ID de la carga para eliminar
+                    id: load.id, 
                     nombre: load.subject?.nombre || 'Materia sin nombre',
                     docente: load.docente ? `Prof. ${load.docente.nombre} ${load.docente.apellido}` : 'Sin docente asignado'
                 }));
 
             return {
                 id: sec.id,
-                letra: sec.seccion,       // Pasa la columna 'seccion' (A, B, C...) a la prop 'letra'
-                capacidad: sec.capacidad, // Usamos tu columna capacidad por si la quieres mostrar
+                letra: sec.seccion,       
+                capacidad: sec.capacidad, 
                 materias: materiasAsignadas
             };
         });
